@@ -37,6 +37,10 @@ const navViews = ['hoy', 'ayuno', 'diario', 'objetivo', 'dietas'];
 const periods = ['Desayuno', 'Almuerzo', 'Cena', 'Colación'];
 const macroGroups = [['protein', 'Proteínas', 'protein'], ['carbs', 'Carbohidratos', 'carbs'], ['fat', 'Grasas', 'fat']];
 const storageKey = 'stricto-v1';
+const profileKeyPrefix = `${storageKey}:perfil:`;
+const activeProfileKey = `${storageKey}:perfil-activo`;
+const principalProfileId = 'principal';
+const memoryProfiles = new Map();
 const hour = 3600000;
 const preferences = {mixed: 'Omnívora', vegetarian: 'Vegetariana', vegan: 'Vegana'};
 const strengthOptions = ['0', '1', '2', '3', '4', '5 o más'];
@@ -46,20 +50,60 @@ const initialState = {
   targets: {kcal: '', protein: '', carbs: '', fat: ''}, allowFasting: false, duration: 0, fastStart: '20:00', fast: null, fastHistory: [], meals: [],
 };
 
-function readState() {
+function profileStorageKey(id) {
+  return id === principalProfileId ? storageKey : `${profileKeyPrefix}${id}`;
+}
+
+function profileIds() {
+  const ids = new Set([principalProfileId, ...memoryProfiles.keys()]);
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey));
-    const theme = Object.hasOwn(designs, saved?.theme) ? saved.theme : initialState.theme;
-    return {...initialState, ...saved, theme, profile: {...emptyProfile, ...saved?.profile}, targets: {...initialState.targets, ...saved?.targets}};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(profileKeyPrefix)) ids.add(key.slice(profileKeyPrefix.length));
+    }
   } catch {
-    return {...initialState};
+    storageAvailable = false;
+  }
+  return [...ids];
+}
+
+function lastProfileId() {
+  try {
+    const id = localStorage.getItem(activeProfileKey);
+    return profileIds().includes(id) ? id : principalProfileId;
+  } catch {
+    storageAvailable = false;
+    return principalProfileId;
   }
 }
 
-let state = readState();
+function readState(id) {
+  let saved = memoryProfiles.get(id);
+  if (!saved) {
+    try {
+      saved = JSON.parse(localStorage.getItem(profileStorageKey(id)));
+    } catch {
+      saved = null;
+    }
+  }
+  return {
+    ...initialState, ...saved,
+    name: typeof saved?.name === 'string' ? saved.name : initialState.name,
+    theme: Object.hasOwn(designs, saved?.theme) ? saved.theme : initialState.theme,
+    goal: Object.hasOwn(goalOptions, saved?.goal) ? saved.goal : initialState.goal,
+    foodPreference: Object.hasOwn(preferences, saved?.foodPreference) ? saved.foodPreference : initialState.foodPreference,
+    profile: {...emptyProfile, ...saved?.profile}, targets: {...initialState.targets, ...saved?.targets},
+    meals: Array.isArray(saved?.meals) ? saved.meals.slice() : [],
+    measurements: Array.isArray(saved?.measurements) ? saved.measurements.slice() : [],
+    fastHistory: Array.isArray(saved?.fastHistory) ? saved.fastHistory.slice() : [],
+  };
+}
+
+let storageAvailable = true;
+let activeProfileId = lastProfileId();
+let state = readState(activeProfileId);
 let view = 'hoy';
 let journalDay = localDate();
-let storageAvailable = true;
 let composer = null;
 let visionWorker;
 let scanRequestId = 0;
@@ -69,10 +113,67 @@ const dialogContent = document.querySelector('#dialog-content');
 
 function saveState() {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    localStorage.setItem(profileStorageKey(activeProfileId), JSON.stringify(state));
+    memoryProfiles.delete(activeProfileId);
+  } catch {
+    memoryProfiles.set(activeProfileId, state);
+    storageAvailable = false;
+  }
+}
+
+function profileDisplayName(id, profileState) {
+  return profileState.name.trim() || (id === principalProfileId ? 'Perfil principal' : 'Perfil');
+}
+
+function activateProfile(id, profileState = readState(id)) {
+  if (id === activeProfileId) {
+    dialog.close();
+    return;
+  }
+  activeProfileId = id;
+  state = profileState;
+  journalDay = localDate();
+  resetDietCatalog();
+  try {
+    localStorage.setItem(activeProfileKey, id);
   } catch {
     storageAvailable = false;
   }
+  if (dialog.open) dialog.close();
+  applyTheme();
+  renderPage();
+  updateClock();
+  tell(`Perfil activo · ${profileDisplayName(id, state)}`);
+}
+
+function openProfilePicker() {
+  openDialog('profiles', 'Perfiles', 'Cada perfil tiene sus metas, medidas, diario y horario en este navegador.', `
+    <div class="profile-picker">${profileIds().map(id => {
+      const profileState = id === activeProfileId ? state : readState(id);
+      const current = id === activeProfileId;
+      return `<button class="button button-outline profile-choice" type="button" data-action="switch-profile" data-id="${escapeHtml(id)}" aria-pressed="${current}"><span><strong>${escapeHtml(profileDisplayName(id, profileState))}</strong><small>${goalOptions[profileState.goal].name}</small></span>${current ? '<em>Activo</em>' : icon('chevron')}</button>`;
+    }).join('')}</div>
+    <button class="button button-primary" type="button" data-action="new-profile">${icon('plus')} Crear perfil</button>`);
+}
+
+function openCreateProfile() {
+  openDialog('profiles', 'Crear perfil', '', `
+    <form id="new-profile-form" class="new-profile-form">
+      <label class="field">Nombre o apodo<input name="name" maxlength="35" autocomplete="off" required></label>
+      <label class="field">Objetivo<select name="goal">${selectOptions(Object.entries(goalOptions).map(([id, goal]) => [id, goal.name]), 'recomp')}</select></label>
+      <label class="field">Tipo de alimentación<select name="preference">${selectOptions(Object.entries(preferences), 'mixed')}</select></label>
+      <button class="button button-primary" type="submit">Crear y abrir perfil</button>
+    </form>`);
+  dialogContent.querySelector('input').focus();
+}
+
+function createProfile({name, goal, preference}) {
+  const trimmed = name.value.trim();
+  name.setCustomValidity(trimmed ? '' : 'Escribe un nombre o apodo.');
+  if (!name.reportValidity()) return;
+  const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  activateProfile(id, {...readState(id), name: trimmed, goal: goal.value, foodPreference: preference.value, demo: false});
+  if (view !== 'objetivo') location.hash = 'objetivo';
 }
 
 function escapeHtml(value) {
@@ -147,7 +248,11 @@ function renderHeader() {
     dateNode.dateTime = localDate(date);
   }
   document.querySelector('#example-button').hidden = !state.demo;
-  document.querySelector('#avatar').textContent = (state.name.trim().charAt(0) || 'S').toUpperCase();
+  const avatar = document.querySelector('#avatar');
+  const profileName = profileDisplayName(activeProfileId, state);
+  avatar.textContent = (state.name.trim().charAt(0) || 'S').toUpperCase();
+  avatar.title = profileName;
+  avatar.setAttribute('aria-label', `Cambiar perfil. Activo: ${profileName}`);
   document.querySelector('#home-goal').textContent = goalOptions[state.goal].name;
 }
 
@@ -560,11 +665,15 @@ const actionHandlers = {
   scan: () => newComposer('scan'),
   manual: () => newComposer('manual'),
   designs: openDesigns,
+  profiles: openProfilePicker,
+  'new-profile': openCreateProfile,
+  'switch-profile': button => activateProfile(button.dataset.id),
   personal: openPersonal,
   recipe: button => showDietRecipe(button.dataset.id),
   'diet-catalog-page': button => stepDietCatalog(Number(button.dataset.step)),
   'show-diet-section': button => showDietSection(button.getAttribute('aria-controls')),
   'download-profile': downloadDietProfile,
+  'download-plan-pdf': downloadDietPlanPDF,
   'apply-diet-fast': applyDietFasting,
   sources: openSources,
   'close-dialog': () => dialog.close(),
@@ -679,6 +788,7 @@ const formHandlers = {
     tell('Metas guardadas.');
   },
   'profile-form': saveDietProfile,
+  'new-profile-form': createProfile,
   'meal-form': ({name, period, date}) => {
     const {total, ingredients} = renderMealEstimate();
     name.setCustomValidity(name.value.trim() ? '' : 'Escribe un nombre para la comida.');

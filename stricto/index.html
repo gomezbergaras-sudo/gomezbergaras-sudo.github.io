@@ -12,9 +12,12 @@
   <link rel="stylesheet" href="styles.css">
   <script src="catalog.js" defer></script>
   <script src="diet-catalog.js" defer></script>
+  <script src="diet-photos.js" defer></script>
   <script src="diet-plan.js" defer></script>
   <script src="vision.js" defer></script>
   <script src="diet-ui.js" defer></script>
+  <script src="vendor/jspdf-4.2.1.min.js" defer></script>
+  <script src="diet-report.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -51,7 +54,7 @@
       <div class="top-actions">
         <button class="example-button" id="example-button" type="button" data-action="personal"><i></i><span>Vista de ejemplo</span></button>
         <button class="button button-outline design-trigger" type="button" data-action="designs"><span data-icon="palette"></span><span>Diseños</span></button>
-        <a class="avatar" id="avatar" href="#objetivo" aria-label="Mi perfil">S</a>
+        <button class="avatar" id="avatar" type="button" data-action="profiles" aria-label="Cambiar perfil">S</button>
       </div>
     </header>
 
@@ -109,7 +112,7 @@
       </section>
 
       <section id="view-objetivo" class="view" aria-labelledby="goal-title" hidden>
-        <div class="page-heading"><div><h1 id="goal-title">Mi perfil<span>.</span></h1><p>Guarda tus medidas y ajusta el plan a tu objetivo.</p></div><button class="button button-outline" type="button" data-action="download-profile"><span data-icon="download"></span> Descargar mis datos</button></div>
+        <div class="page-heading"><div><h1 id="goal-title">Mi perfil<span>.</span></h1><p>Guarda tus medidas y ajusta el plan a tu objetivo.</p></div><div class="stack-actions"><button class="button button-outline" type="button" data-action="profiles">Cambiar perfil</button><button class="button button-outline" type="button" data-action="download-profile"><span data-icon="download"></span> Descargar mis datos</button></div></div>
         <div id="goal-content"></div>
       </section>
       <section id="view-dietas" class="view" aria-labelledby="diet-title" hidden>

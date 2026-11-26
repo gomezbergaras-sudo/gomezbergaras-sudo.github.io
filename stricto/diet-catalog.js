@@ -69,30 +69,45 @@ const dietIngredients = Object.fromEntries([
   ['salsa-pimenton', 'puré de pimentón asado', [65, 80, 60, 65]],
   ['aceite', 'aceite de oliva', [8, 13, 6, 8]],
   ['limon', 'jugo de limón', [12, 12, 12, 12]],
+  ['tortilla-maiz', 'tortilla de maíz', [65, 90, 55, 75]],
+  ['tortilla-trigo', 'tortilla integral de trigo', [65, 90, 55, 75]],
+  ['auyama', 'auyama cocida', [140, 180, 140, 150]],
+  ['papa', 'papa cocida', 'grano'],
+  ['caldo', 'caldo de verduras', [180, 200, 180, 190]],
+  ['bebida-soya', 'bebida de soya sin azúcar', [200, 250, 175, 220]],
+  ['cacao', 'cacao en polvo sin azúcar', [7, 10, 6, 8]],
+  ['mango', 'mango', 'fruta'],
+  ['berenjena', 'berenjena', [150, 150, 150, 150]],
+  ['maiz', 'maíz tierno cocido', [80, 110, 65, 90]],
+  ['frijol-rojo', 'frijoles rojos cocidos', 'legumbre'],
+  ['camaron', 'camarones cocidos y pelados', 'carne', 'mixed'],
 ].map(([id, name, grams, diet = 'vegan']) => [id, {
   name, grams: Array.isArray(grams) ? grams : dietPortions[grams], diet,
 }]));
 
 const catalogProteins = ['pollo', 'res', 'pavo', 'cerdo', 'salmon', 'atun', 'garbanzos', 'tofu', 'lentejas', 'caraotas'];
 
+const dietTitleNames = {
+  'huevo-cocido': 'huevo', pollo: 'pollo', res: 'res', pavo: 'pavo', cerdo: 'cerdo',
+  salmon: 'salmón', atun: 'atún', caraotas: 'caraotas', lentejas: 'lentejas', garbanzos: 'garbanzos',
+  tofu: 'tofu', queso: 'queso blanco', arroz: 'arroz', quinoa: 'quinoa', batata: 'batata',
+  platano: 'plátano maduro', yuca: 'yuca', brocoli: 'brócoli', 'yogur-soya': 'yogur de soya',
+};
+
 const dietFamilies = {
   arepas: {
     label: 'Arepas',
-    photo: 'dieta-arepa-huevo.jpg',
-    alt: 'Arepa de maíz rellena de huevo, aguacate y tomate',
     groups: [
       ['huevo-cocido', 'res', 'pavo', 'pollo', 'caraotas', 'atun', 'queso', 'tofu', 'garbanzos', 'lentejas'],
       ['aguacate', 'tomate', 'pimenton', 'repollo'],
       ['pepino', 'papaya', 'naranja', 'pina'],
     ],
     ingredients: ids => ['arepa', ...ids],
-    title: (filling, topping, side) => `Arepa con ${filling} y ${topping}, acompañada de ${side}`,
+    title: (filling, topping, side) => `Arepa de ${filling} y ${topping} con ${side}`,
     method: (filling, topping, side) => `Calienta la arepa y ábrela por un lado. Rellena con ${filling} y ${topping}. Sirve con ${side} al lado.`,
   },
   huevos: {
     label: 'Huevos',
-    photo: 'dieta-huevos.jpg',
-    alt: 'Huevos revueltos con batata, espinaca y aguacate',
     groups: [
       ['batata', 'yuca', 'platano', 'pan'],
       ['espinaca', 'tomate', 'pimenton', 'calabacin', 'cebolla', 'champinones'],
@@ -104,8 +119,6 @@ const dietFamilies = {
   },
   bowls: {
     label: 'Bowls',
-    photo: 'bowl-stricto.jpg',
-    alt: 'Bowl de pollo, arroz y vegetales',
     groups: [
       catalogProteins,
       ['arroz', 'quinoa', 'batata', 'platano', 'yuca'],
@@ -117,8 +130,6 @@ const dietFamilies = {
   },
   avenas: {
     label: 'Avena y yogur',
-    photo: 'dieta-avena.jpg',
-    alt: 'Yogur con avena, fresas y cambur',
     groups: [
       ['yogur', 'yogur-soya'],
       ['fresas', 'cambur', 'manzana', 'papaya', 'pina', 'pera'],
@@ -130,8 +141,6 @@ const dietFamilies = {
   },
   pastas: {
     label: 'Pastas',
-    photo: 'dieta-pasta.jpg',
-    alt: 'Pasta integral con pollo, brócoli y salsa de tomate',
     groups: [
       catalogProteins.filter(id => id !== 'salmon'),
       ['brocoli', 'espinaca', 'calabacin', 'champinones'],
@@ -143,8 +152,6 @@ const dietFamilies = {
   },
   ensaladas: {
     label: 'Ensaladas',
-    photo: 'dieta-ensalada.jpg',
-    alt: 'Ensalada de lechuga romana, garbanzos y aguacate',
     groups: [
       catalogProteins.filter(id => id !== 'caraotas'),
       ['lechuga', 'espinaca', 'repollo', 'pepino', 'tomate'],
@@ -156,8 +163,52 @@ const dietFamilies = {
   },
 };
 
+const dietFamilyLabels = {
+  sopas: 'Sopas y cremas', tacos: 'Tacos', wraps: 'Wraps', tostadas: 'Tostadas', batidos: 'Batidos',
+  guisos: 'Guisos', parrilla: 'Parrilla', horno: 'Al horno', sandwiches: 'Sándwiches', postres: 'Postres',
+  ...Object.fromEntries(Object.entries(dietFamilies).map(([id, family]) => [id, family.label])),
+};
+
+const featuredDietMeals = [
+  ['crema-auyama', 'sopas', 'Crema de auyama y zanahoria', ['auyama', 'zanahoria', 'caldo', 'semillas'],
+    'Cocina la zanahoria en el caldo hasta que esté tierna. Añade la auyama cocida, licúa y sirve con las semillas de auyama por encima.', 'menu1', 0],
+  ['tacos-camaron', 'tacos', 'Tacos de camarones, repollo y aguacate', ['tortilla-maiz', 'camaron', 'repollo', 'aguacate'],
+    'Calienta las tortillas. Rellena con los camarones cocidos, el repollo finamente cortado y el aguacate en láminas.', 'menu1', 1],
+  ['wrap-pavo', 'wraps', 'Wrap integral de pavo, lechuga y tomate', ['tortilla-trigo', 'pavo', 'lechuga', 'tomate'],
+    'Entibia la tortilla. Coloca la lechuga, el pavo cocido y el tomate en el centro, dobla los bordes y enrolla.', 'menu1', 2],
+  ['tostada-huevo', 'tostadas', 'Tostada integral de aguacate, huevo y tomate', ['pan', 'aguacate', 'huevo-cocido', 'tomate'],
+    'Tuesta el pan integral. Reparte las láminas de aguacate, huevo cocido y tomate sobre el pan.', 'menu1', 3],
+  ['batido-cacao', 'batidos', 'Batido de cambur, cacao y avena', ['bebida-soya', 'cambur', 'cacao', 'avena'],
+    'Licúa la bebida de soya, el cambur, la avena en hojuelas y el cacao hasta obtener una mezcla homogénea.', 'menu1', 4],
+  ['guiso-res', 'guisos', 'Guiso de res con papa y zanahoria', ['res', 'papa', 'zanahoria', 'caldo'],
+    'Cocina la zanahoria cortada en el caldo. Añade la res y la papa ya cocidas, en cubos, y calienta todo junto hasta servir.', 'menu1', 5],
+  ['brochetas-cerdo', 'parrilla', 'Brochetas de cerdo, pimentón y cebolla', ['cerdo', 'pimenton', 'cebolla'],
+    'Corta el lomo cocido, el pimentón y la cebolla en piezas similares. Ensarta alternando los ingredientes y dora las brochetas en una plancha caliente.', 'menu2', 0],
+  ['berenjena-lentejas', 'horno', 'Berenjena rellena de lentejas y queso blanco', ['berenjena', 'lentejas', 'salsa-tomate', 'queso'],
+    'Corta la berenjena a lo largo y hornéala hasta ablandarla. Rellena con lentejas y salsa de tomate, agrega el queso desmenuzado y hornea unos minutos más.', 'berenjena', 0],
+  ['crema-maiz', 'sopas', 'Crema de maíz y papa', ['maiz', 'papa', 'caldo', 'aceite'],
+    'Calienta el caldo con el maíz y la papa cocida. Licúa y termina con un hilo de aceite de oliva.', 'menu2', 2],
+  ['sandwich-atun', 'sandwiches', 'Sándwich integral de atún, pepino y lechuga', ['pan', 'atun', 'pepino', 'lechuga'],
+    'Escurre el atún y repártelo sobre el pan integral. Agrega el pepino cortado y la lechuga; cierra el sándwich.', 'menu2', 3],
+  ['chili-vegetal', 'guisos', 'Chili de frijoles rojos, maíz y pimentón', ['frijol-rojo', 'maiz', 'tomate', 'pimenton'],
+    'Cocina el tomate picado con el pimentón. Incorpora el maíz y los frijoles ya cocidos y reduce a fuego suave hasta espesar.', 'menu2', 4],
+  ['vasito-mango', 'postres', 'Vasito de mango, yogur de soya y chía', ['mango', 'yogur-soya', 'chia'],
+    'Mezcla las semillas de chía con el yogur de soya y alterna capas de yogur y mango en cubos. Refrigera antes de servir.', 'menu2', 5],
+].map(([id, family, name, ingredientIds, method, sheet, cell]) =>
+  makeDietRecipe({id, family, name, ingredientIds, method, platedPhoto: {sheet, cell}}));
+
 function dietSearchWords(value) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) ?? [];
+}
+
+function makeDietRecipe(recipe) {
+  const {family, name, ingredientIds} = recipe;
+  return {
+    ...recipe,
+    animalProducts: ingredientIds.some(id => dietIngredients[id].diet !== 'vegan'),
+    meat: ingredientIds.some(id => dietIngredients[id].diet === 'mixed'),
+    searchWords: new Set(dietSearchWords(`${dietFamilyLabels[family]} ${name} ${ingredientIds.map(id => dietIngredients[id].name).join(' ')}`)),
+  };
 }
 
 function catalogMealsFor(familyId, family) {
@@ -166,20 +217,20 @@ function catalogMealsFor(familyId, family) {
   return combinations.map(ids => {
     const ingredientIds = family.ingredients(ids);
     const names = ids.map(id => dietIngredients[id].name);
-    const name = family.title(...names);
-    return {
-      id: [familyId, ...ids].join(':'), family: familyId, name, ingredientIds,
-      photo: family.photo, alt: family.alt, referencePhoto: true, method: family.method(...names),
-      animalProducts: ingredientIds.some(id => dietIngredients[id].diet !== 'vegan'),
-      meat: ingredientIds.some(id => dietIngredients[id].diet === 'mixed'),
-      searchWords: new Set(dietSearchWords(`${family.label} ${name} ${ingredientIds.map(id => dietIngredients[id].name).join(' ')}`)),
-    };
+    return makeDietRecipe({
+      id: [familyId, ...ids].join(':'), family: familyId,
+      name: family.title(...ids.map((id, index) => dietTitleNames[id] ?? names[index])),
+      ingredientIds, method: family.method(...names),
+    });
   });
 }
 
 const dietCatalogGroups = Object.entries(dietFamilies).map(([id, family]) => catalogMealsFor(id, family));
-const dietCatalog = Array.from({length: Math.max(...dietCatalogGroups.map(group => group.length))},
-  (_, index) => dietCatalogGroups.map(group => group[index]).filter(Boolean)).flat();
+const dietCatalog = [
+  ...featuredDietMeals,
+  ...Array.from({length: Math.max(...dietCatalogGroups.map(group => group.length))},
+    (_, index) => dietCatalogGroups.map(group => group[index]).filter(Boolean)).flat(),
+];
 const dietCatalogById = new Map(dietCatalog.map(recipe => [recipe.id, recipe]));
 
 function searchDietCatalog({query, family, preference}) {

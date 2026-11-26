@@ -16,6 +16,10 @@ const healthOptions = {
 const dietCatalogFilters = {query: '', family: 'all', preference: null, page: 0};
 const dietCatalogPageSize = 12;
 
+function resetDietCatalog() {
+  Object.assign(dietCatalogFilters, {query: '', family: 'all', preference: null, page: 0});
+}
+
 function currentDietPlan() {
   return buildDietPlan(state.profile, state.goal, state.foodPreference, state.strengthDays);
 }
@@ -28,7 +32,7 @@ function renderGoalPage() {
   const profile = state.profile;
   document.querySelector('#goal-content').innerHTML = `<div class="sub-grid profile-layout">
     <article class="card sub-card profile-form-card">
-      <header class="card-heading"><div class="heading-title">${icon('target', 'card-icon')}<h2>Datos para tu plan</h2></div></header>
+      <header class="card-heading"><div class="heading-title">${icon('target', 'card-icon')}<h2>Datos de ${escapeHtml(profileDisplayName(activeProfileId, state))}</h2></div></header>
       <form id="profile-form">
         <p class="helper">La edad, estatura y el peso actual permiten personalizar el plan. Las demás medidas son opcionales.</p>
         <label class="field">Nombre o apodo<input name="name" maxlength="35" value="${escapeHtml(state.name)}" autocomplete="nickname"></label>
@@ -93,13 +97,9 @@ function saveDietProfile(elements) {
   tell('Perfil guardado. Tu plan de Dietas se actualizó.');
 }
 
-function mealPhoto(meal, className, lazy = false) {
-  return `<img class="${className}" src="assets/${meal.photo}" alt="${meal.alt}" width="840" height="560"${lazy ? ' loading="lazy" decoding="async"' : ''}${meal.focal ? ` style="object-position:${meal.focal}"` : ''}>`;
-}
-
-function dietRecipeCard(meal, label, lazy = false) {
+function dietRecipeCard(meal, label) {
   return `<article class="card diet-recipe">
-    <button class="diet-photo-button" type="button" data-action="recipe" data-id="${meal.id}" aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo', lazy)}</button>
+    <button class="diet-photo-button" type="button" data-action="recipe" data-id="${meal.id}" aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo')}</button>
     <div class="diet-recipe-copy"><span class="diet-period">${label}</span><h3>${meal.name}</h3>
     <button class="text-button diet-recipe-link" type="button" data-action="recipe" data-id="${meal.id}">Ver receta ${icon('arrow')}</button></div>
   </article>`;
@@ -110,8 +110,8 @@ function activeDietCatalogPreference() {
 }
 
 function dietCatalogMarkup() {
-  const categories = [['all', 'Todas las categorías'], ...Object.entries(dietFamilies).map(([id, family]) => [id, family.label])];
-  const diets = [['mixed', 'Todas las comidas'], ['meat', 'Con carne o pescado'], ['vegetarian', 'Vegetarianas'], ['vegan', 'Veganas']];
+  const categories = [['all', 'Todas'], ...Object.entries(dietFamilyLabels)];
+  const diets = [['mixed', 'Cualquiera'], ['meat', 'Carne o pescado'], ['vegetarian', 'Vegetarianas'], ['vegan', 'Veganas']];
   return `<section class="diet-catalog" id="diet-catalog" aria-labelledby="diet-catalog-title" tabindex="-1">
     <div class="diet-section-heading"><h2 id="diet-catalog-title">Explora comidas</h2><span>${number(dietCatalog.length)} combinaciones</span></div>
     <div class="card diet-filters" id="diet-catalog-filters">
@@ -140,7 +140,7 @@ function renderDietCatalogResults() {
   document.querySelector('#diet-catalog-results').textContent = matches.length
     ? `${number(first + 1)}–${number(first + pageMeals.length)} de ${number(matches.length)} ${matches.length === 1 ? 'combinación' : 'combinaciones'}`
     : 'No hay coincidencias. Prueba otro ingrediente o cambia los filtros.';
-  grid.innerHTML = pageMeals.map(meal => dietRecipeCard(meal, dietFamilies[meal.family].label, true)).join('');
+  grid.innerHTML = pageMeals.map(meal => dietRecipeCard(meal, dietFamilyLabels[meal.family])).join('');
   const pagination = document.querySelector('#diet-catalog-pages');
   pagination.hidden = pageCount < 2;
   document.querySelector('#diet-catalog-page').textContent = `Página ${number(page + 1)} de ${number(pageCount)}`;
@@ -183,7 +183,8 @@ function renderDietPage() {
         <button class="button diet-jump" type="button" data-action="show-diet-section" aria-controls="diet-window">${icon('moon')} Ver ayuno</button></div>
       </article>
     <section class="diet-menu" aria-labelledby="plan-meals-title">
-      <div class="diet-section-heading"><h2 id="plan-meals-title">Menú de un día</h2><span>${preferences[state.foodPreference]}</span></div>
+      <div class="diet-section-heading"><div><h2 id="plan-meals-title">Menú de un día</h2><span>${preferences[state.foodPreference]}</span></div>
+        <button class="button button-outline" type="button" data-action="download-plan-pdf">${icon('download')} Descargar plan en PDF</button></div>
       <div class="diet-recipes">${plan.meals.map(meal => dietRecipeCard(meal, meal.period)).join('')}</div>
     </section>
     <article class="card diet-window" id="diet-window" aria-labelledby="diet-window-heading" tabindex="-1">
@@ -215,7 +216,7 @@ function showDietRecipe(id) {
   const goal = currentDietPlan().tailored ? state.goal : 'general';
   const portionOptions = Object.entries(dietPortionGoals);
   openDialog('recipe', recipe.name, '', `<figure class="diet-recipe-figure">${mealPhoto(recipe, 'diet-detail-photo')}
-    ${recipe.referencePhoto ? '<figcaption>Foto de referencia</figcaption>' : ''}</figure>
+    <figcaption>${recipe.platedPhoto ? 'Foto de referencia del plato' : 'Fotos de los ingredientes de esta combinación'}</figcaption></figure>
     <div class="diet-detail">
       <h3>Ingredientes para una porción</h3>
       ${fastingSafety(state.profile) ? '' : `<label class="field">Objetivo para los gramajes
