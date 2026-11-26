@@ -1,13 +1,14 @@
 const scope = self.registration.scope;
 const cachePrefix = `${scope}stricto-app-`;
-const cacheName = `${cachePrefix}4`;
+const cacheName = `${cachePrefix}5`;
 const appFiles = new Set([
   'index.html', 'styles.css', 'catalog.js', 'vision.js', 'app.js', 'stricto.webmanifest',
   'assets/bowl-stricto.jpg', 'assets/stricto-marca.png', 'assets/stricto-logo.png', 'assets/stricto-logo-inverso.png',
   'assets/stricto-app-192.png', 'assets/stricto-app-512.png',
   'assets/stricto-escaner-editorial.jpg',
-  'diet-plan.js', 'diet-ui.js', 'assets/dieta-arepa.jpg', 'assets/dieta-avena.jpg',
-  'assets/dieta-tofu.jpg', 'assets/dieta-manzana.jpg',
+  'diet-catalog.js', 'diet-plan.js', 'diet-ui.js', 'assets/dieta-arepa.jpg', 'assets/dieta-avena.jpg',
+  'assets/dieta-tofu.jpg', 'assets/dieta-manzana.jpg', 'assets/dieta-arepa-huevo.jpg',
+  'assets/dieta-huevos.jpg', 'assets/dieta-pasta.jpg', 'assets/dieta-ensalada.jpg',
 ].map(file => new URL(file, scope).href));
 const startPage = new URL('index.html', scope).href;
 

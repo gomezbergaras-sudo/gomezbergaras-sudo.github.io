@@ -201,7 +201,7 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .measurement-list time { color: var(--muted); font-size: 12px; }
 .measurement-list span { font-weight: 680; }
 
-.diet-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: 'summary window' 'menu menu'; gap: 18px; }
+.diet-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: 'summary window' 'menu menu' 'catalog catalog'; gap: 18px; }
 .diet-summary, .diet-window { display: grid; justify-items: start; align-content: start; gap: 11px; }
 .diet-summary { grid-area: summary; color: var(--hero-ink); border-color: transparent; background: radial-gradient(ellipse at 100% 0, var(--hero-light), transparent 82%), var(--hero); }
 .diet-summary .card-icon { background: #ffffff20; color: var(--ring); }
@@ -232,8 +232,23 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .diet-period { font-size: 11px; color: var(--accent); font-weight: 740; }
 .diet-recipe h3 { font-size: 16px; line-height: 1.2; letter-spacing: -.025em; }
 .diet-recipe-link { display: inline-flex; gap: 6px; align-items: center; width: fit-content; }
+.diet-catalog { grid-area: catalog; min-width: 0; margin-top: 8px; scroll-margin-top: 80px; }
+.diet-catalog-link { border-color: #ffffff40; color: var(--hero-ink); background: #ffffff13; }
+.diet-filters.card { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }
+.diet-filters .field input, .diet-filters .field select, .diet-detail .field select { min-height: 44px; }
+.diet-results { color: var(--muted); font-size: 13px; margin: 12px 0 9px; scroll-margin-top: 84px; }
+.diet-catalog-recipes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.diet-pages { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.diet-pages span { font-size: 12px; color: var(--muted); font-weight: 700; text-align: center; }
+.diet-pages .button { min-height: 44px; }
+.diet-recipe-figure { margin: 0; }
+.diet-recipe-figure figcaption { margin-top: 5px; color: var(--muted); font-size: 11px; }
 .diet-detail-photo { border-radius: 14px; max-height: 315px; }
-.diet-method { margin-top: 6px; }
+.diet-detail { display: grid; gap: 9px; }
+.diet-portion-list { padding: 0; margin: 0; list-style: none; }
+.diet-portion-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--border); padding: 8px 0; }
+.diet-portion-list li span::first-letter { text-transform: uppercase; }
+.diet-portion-list strong { flex: none; font-variant-numeric: tabular-nums; }
 
 dialog { max-width: calc(100% - 24px); max-height: calc(100% - 28px); width: 550px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0; box-shadow: 0 25px 75px #101f2850; }
 dialog::backdrop { background: #14261d8c; backdrop-filter: blur(3px); }
@@ -406,10 +421,13 @@ dialog.design-dialog { width: 805px; }
   .calorie-total strong { font-size: 35px; }
   .sub-grid { grid-template-columns: 1fr; gap: 12px; }
   .sub-stack { gap: 12px; }
-  .diet-layout { grid-template-columns: 1fr; grid-template-areas: 'summary' 'menu' 'window'; gap: 15px; }
+  .diet-layout { grid-template-columns: 1fr; grid-template-areas: 'summary' 'menu' 'window' 'catalog'; gap: 15px; }
   .diet-jump { display: inline-flex; border-color: #ffffff40; color: var(--hero-ink); background: #ffffff13; }
   .profile-options label:first-child, .profile-options label:last-child { grid-column: 1 / -1; }
   .diet-recipes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .diet-filters.card { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .diet-search { grid-column: 1 / -1; }
+  .diet-filters .field input, .diet-filters .field select, .diet-detail .field select { font-size: 16px; }
   .diet-recipe-copy { padding: 10px; }
   .diet-recipe-link { min-height: 36px; font-size: 12px; }
   .fast-settings .fast-body { min-height: 180px; gap: 13px; }

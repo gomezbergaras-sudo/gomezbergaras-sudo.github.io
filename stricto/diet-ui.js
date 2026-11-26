@@ -13,6 +13,9 @@ const healthOptions = {
   review: 'Alguna aplica o tengo dudas',
 };
 
+const dietCatalogFilters = {query: '', family: 'all', preference: null, page: 0};
+const dietCatalogPageSize = 12;
+
 function currentDietPlan() {
   return buildDietPlan(state.profile, state.goal, state.foodPreference, state.strengthDays);
 }
@@ -90,8 +93,73 @@ function saveDietProfile(elements) {
   tell('Perfil guardado. Tu plan de Dietas se actualizó.');
 }
 
-function mealPhoto(meal, className) {
-  return `<img class="${className}" src="assets/${meal.photo}" alt="${meal.alt}" width="840" height="560"${meal.focal ? ` style="object-position:${meal.focal}"` : ''}>`;
+function mealPhoto(meal, className, lazy = false) {
+  return `<img class="${className}" src="assets/${meal.photo}" alt="${meal.alt}" width="840" height="560"${lazy ? ' loading="lazy" decoding="async"' : ''}${meal.focal ? ` style="object-position:${meal.focal}"` : ''}>`;
+}
+
+function dietRecipeCard(meal, label, lazy = false) {
+  return `<article class="card diet-recipe">
+    <button class="diet-photo-button" type="button" data-action="recipe" data-id="${meal.id}" aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo', lazy)}</button>
+    <div class="diet-recipe-copy"><span class="diet-period">${label}</span><h3>${meal.name}</h3>
+    <button class="text-button diet-recipe-link" type="button" data-action="recipe" data-id="${meal.id}">Ver receta ${icon('arrow')}</button></div>
+  </article>`;
+}
+
+function activeDietCatalogPreference() {
+  return dietCatalogFilters.preference ?? state.foodPreference;
+}
+
+function dietCatalogMarkup() {
+  const categories = [['all', 'Todas las categorías'], ...Object.entries(dietFamilies).map(([id, family]) => [id, family.label])];
+  const diets = [['mixed', 'Todas las comidas'], ['meat', 'Con carne o pescado'], ['vegetarian', 'Vegetarianas'], ['vegan', 'Veganas']];
+  return `<section class="diet-catalog" id="diet-catalog" aria-labelledby="diet-catalog-title" tabindex="-1">
+    <div class="diet-section-heading"><h2 id="diet-catalog-title">Explora comidas</h2><span>${number(dietCatalog.length)} combinaciones</span></div>
+    <div class="card diet-filters" id="diet-catalog-filters">
+      <label class="field diet-search">Buscar por ingrediente<input type="search" name="query" placeholder="Ej. huevo, arepa o pavo" value="${escapeHtml(dietCatalogFilters.query)}"></label>
+      <label class="field">Categoría<select name="family">${selectOptions(categories, dietCatalogFilters.family)}</select></label>
+      <label class="field">Alimentación<select name="preference">${selectOptions(diets, activeDietCatalogPreference())}</select></label>
+    </div>
+    <p class="diet-results" id="diet-catalog-results" role="status" tabindex="-1"></p>
+    <div class="diet-recipes diet-catalog-recipes" id="diet-catalog-grid"></div>
+    <div class="diet-pages" id="diet-catalog-pages" hidden>
+      <button class="button button-outline" type="button" data-action="diet-catalog-page" data-step="-1">Anterior</button>
+      <span id="diet-catalog-page"></span>
+      <button class="button button-outline" type="button" data-action="diet-catalog-page" data-step="1">Siguiente</button>
+    </div>
+  </section>`;
+}
+
+function renderDietCatalogResults() {
+  const matches = searchDietCatalog({...dietCatalogFilters, preference: activeDietCatalogPreference()});
+  const pageCount = Math.ceil(matches.length / dietCatalogPageSize);
+  const page = Math.min(dietCatalogFilters.page, Math.max(0, pageCount - 1));
+  const first = page * dietCatalogPageSize;
+  const pageMeals = matches.slice(first, first + dietCatalogPageSize);
+  const grid = document.querySelector('#diet-catalog-grid');
+  dietCatalogFilters.page = page;
+  document.querySelector('#diet-catalog-results').textContent = matches.length
+    ? `${number(first + 1)}–${number(first + pageMeals.length)} de ${number(matches.length)} ${matches.length === 1 ? 'combinación' : 'combinaciones'}`
+    : 'No hay coincidencias. Prueba otro ingrediente o cambia los filtros.';
+  grid.innerHTML = pageMeals.map(meal => dietRecipeCard(meal, dietFamilies[meal.family].label, true)).join('');
+  const pagination = document.querySelector('#diet-catalog-pages');
+  pagination.hidden = pageCount < 2;
+  document.querySelector('#diet-catalog-page').textContent = `Página ${number(page + 1)} de ${number(pageCount)}`;
+  pagination.querySelector('[data-step="-1"]').disabled = page === 0;
+  pagination.querySelector('[data-step="1"]').disabled = page + 1 >= pageCount;
+}
+
+function updateDietCatalogFilter(input) {
+  dietCatalogFilters[input.name] = input.value;
+  dietCatalogFilters.page = 0;
+  renderDietCatalogResults();
+}
+
+function stepDietCatalog(step) {
+  dietCatalogFilters.page = Math.max(0, dietCatalogFilters.page + step);
+  renderDietCatalogResults();
+  const results = document.querySelector('#diet-catalog-results');
+  results.focus({preventScroll: true});
+  results.scrollIntoView({block: 'start'});
 }
 
 function renderDietPage() {
@@ -111,15 +179,12 @@ function renderDietPage() {
         <p>${plan.mealAdvice}</p>${plan.training ? `<p>${plan.training}</p>` : ''}
         ${progress || target ? `<dl class="diet-metrics">${progress}${target}</dl>` : ''}
         <div class="stack-actions"><a class="button button-light" href="#objetivo">${plan.profileComplete ? 'Actualizar mi perfil' : 'Completar mi perfil'} ${icon('arrow')}</a>
-        <button class="button diet-jump" type="button" data-action="show-diet-window" aria-controls="diet-window">${icon('moon')} Ver ayuno</button></div>
+        <button class="button diet-catalog-link" type="button" data-action="show-diet-section" aria-controls="diet-catalog">${icon('bowl')} Explorar comidas</button>
+        <button class="button diet-jump" type="button" data-action="show-diet-section" aria-controls="diet-window">${icon('moon')} Ver ayuno</button></div>
       </article>
     <section class="diet-menu" aria-labelledby="plan-meals-title">
       <div class="diet-section-heading"><h2 id="plan-meals-title">Menú de un día</h2><span>${preferences[state.foodPreference]}</span></div>
-      <div class="diet-recipes">${plan.meals.map(meal => `<article class="card diet-recipe">
-        <button class="diet-photo-button" type="button" data-action="recipe" data-id="${meal.id}" aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo')}</button>
-        <div class="diet-recipe-copy"><span class="diet-period">${meal.period}</span><h3>${meal.name}</h3>
-        <button class="text-button diet-recipe-link" type="button" data-action="recipe" data-id="${meal.id}">Ver receta ${icon('arrow')}</button></div>
-      </article>`).join('')}</div>
+      <div class="diet-recipes">${plan.meals.map(meal => dietRecipeCard(meal, meal.period)).join('')}</div>
     </section>
     <article class="card diet-window" id="diet-window" aria-labelledby="diet-window-heading" tabindex="-1">
       <div class="heading-title">${icon('clock', 'card-icon')}<h2 id="diet-window-heading">Ayuno recomendado</h2></div>
@@ -128,20 +193,42 @@ function renderDietPage() {
       <p>${fasting.reason}</p>
       ${applied ? `<a class="button button-outline" href="#ayuno">Ver horario aplicado ${icon('check')}</a>` : showApply ? `<button class="button button-outline" type="button" data-action="apply-diet-fast">${applyLabel}</button>` : ''}
     </article>
+    ${dietCatalogMarkup()}
   </div>`;
+  renderDietCatalogResults();
 }
 
-function showDietWindow() {
-  const card = document.querySelector('#diet-window');
-  card.focus({preventScroll: true});
-  card.scrollIntoView({block: 'start'});
+function showDietSection(id) {
+  const section = document.getElementById(id);
+  section.focus({preventScroll: true});
+  section.scrollIntoView({block: 'start'});
+}
+
+function recipePortionsMarkup(recipe, goal) {
+  return portionIngredients(recipe, goal).map(ingredient =>
+    `<li><span>${ingredient.name}</span><strong>${number(ingredient.grams)} g</strong></li>`).join('');
 }
 
 function showDietRecipe(id) {
-  if (!Object.hasOwn(dietRecipes, id)) return;
   const recipe = recipeFor(id, state.foodPreference);
-  openDialog('recipe', recipe.name, '', `${mealPhoto(recipe, 'diet-detail-photo')}
-    <div><h3>Ingredientes</h3><ul class="menu-list">${recipe.ingredients.map(ingredient => `<li>${ingredient}</li>`).join('')}</ul><h3>Preparación</h3><p class="guide diet-method">${recipe.method}</p></div>`);
+  if (!recipe) return;
+  const goal = currentDietPlan().tailored ? state.goal : 'general';
+  const portionOptions = Object.entries(dietPortionGoals);
+  openDialog('recipe', recipe.name, '', `<figure class="diet-recipe-figure">${mealPhoto(recipe, 'diet-detail-photo')}
+    ${recipe.referencePhoto ? '<figcaption>Foto de referencia</figcaption>' : ''}</figure>
+    <div class="diet-detail">
+      <h3>Ingredientes para una porción</h3>
+      ${fastingSafety(state.profile) ? '' : `<label class="field">Objetivo para los gramajes
+        <select id="diet-recipe-goal" data-id="${id}">${selectOptions(portionOptions, goal)}</select></label>`}
+      <ul class="diet-portion-list" id="diet-recipe-ingredients">${recipePortionsMarkup(recipe, goal)}</ul>
+      <p class="helper">Gramajes orientativos para adultos. Pesa cada ingrediente tal como se indica en la lista.</p>
+      <h3>Preparación</h3><p class="guide diet-method">${recipe.method}</p>
+    </div>`);
+}
+
+function updateDietRecipePortions(select) {
+  const recipe = recipeFor(select.dataset.id, state.foodPreference);
+  document.querySelector('#diet-recipe-ingredients').innerHTML = recipePortionsMarkup(recipe, select.value);
 }
 
 function applyDietFasting() {
@@ -163,6 +250,7 @@ function applyDietFasting() {
 function downloadDietProfile() {
   const plan = currentDietPlan();
   const profile = state.profile;
+  const portionGoal = plan.tailored ? state.goal : 'general';
   const summary = [
     'STRICTO • MI PERFIL Y PLAN', `Fecha ${localDate()}`, '',
     `Nombre o apodo: ${state.name || 'Sin registrar'}`,
@@ -172,7 +260,10 @@ function downloadDietProfile() {
     'REGISTRO DE MEDIDAS',
     ...(state.measurements.length ? state.measurements.map(record => `${record.date} · ${Object.entries(measurementFields).filter(([key]) => record[key]).map(([key, [name, unit]]) => `${name} ${number(record[key], 1)} ${unit}`).join(' · ')}`) : ['Sin registros.']), '',
     'MENÚ DE UN DÍA', plan.mealAdvice, ...(plan.training ? [plan.training] : []),
-    ...plan.meals.map(meal => `${meal.period} · ${meal.name}\n  ${meal.ingredients.join(', ')}. ${meal.method}`), '',
+    ...plan.meals.map(meal => {
+      const portions = portionIngredients(meal, portionGoal).map(({name, grams}) => `${grams} g de ${name}`);
+      return `${meal.period} · ${meal.name}\n  ${portions.join(', ')}. ${meal.method}`;
+    }), '',
     'AYUNO RECOMENDADO', plan.fasting.status, plan.fasting.reason,
     ...(plan.fasting.hours ? [`Horario de comidas: ${showTime(addHours(plan.fasting.start, plan.fasting.hours))} – ${showTime(plan.fasting.start)}`] : []),
   ].join('\n');

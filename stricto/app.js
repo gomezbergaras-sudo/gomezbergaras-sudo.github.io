@@ -562,7 +562,8 @@ const actionHandlers = {
   designs: openDesigns,
   personal: openPersonal,
   recipe: button => showDietRecipe(button.dataset.id),
-  'show-diet-window': showDietWindow,
+  'diet-catalog-page': button => stepDietCatalog(Number(button.dataset.step)),
+  'show-diet-section': button => showDietSection(button.getAttribute('aria-controls')),
   'download-profile': downloadDietProfile,
   'apply-diet-fast': applyDietFasting,
   sources: openSources,
@@ -631,6 +632,7 @@ document.addEventListener('click', event => {
 
 document.addEventListener('input', event => {
   const element = event.target;
+  if (element.name === 'query' && element.closest('#diet-catalog-filters')) updateDietCatalogFilter(element);
   if (element.closest('#fast-form') && ['start', 'duration'].includes(element.name)) updateSchedulePreview();
   if (!composer || !element.dataset.field) return;
   const container = element.closest('.ingredient');
@@ -647,6 +649,8 @@ document.addEventListener('input', event => {
 
 document.addEventListener('change', event => {
   const input = event.target;
+  if (input.matches('#diet-catalog-filters select')) updateDietCatalogFilter(input);
+  if (input.id === 'diet-recipe-goal') updateDietRecipePortions(input);
   if (input.id === 'journal-day' && input.value) {
     journalDay = input.value;
     renderJournal();

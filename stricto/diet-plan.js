@@ -13,47 +13,47 @@ const fastingPreferences = {
 const dietRecipes = {
   avena: {
     name: 'Yogur con avena y fruta', photo: 'dieta-avena.jpg', alt: 'Yogur con avena, fresas y rodajas de cambur',
-    ingredients: ['Yogur natural', 'Avena', 'Fresas', 'Cambur'],
+    ingredientIds: ['yogur', 'avena', 'fresas', 'cambur'],
     method: 'Sirve el yogur frío y añade la avena y la fruta cortada.',
   },
   arepa: {
     name: 'Arepa con caraotas y aguacate', photo: 'dieta-arepa.jpg', alt: 'Arepa abierta con caraotas negras y aguacate, acompañada de tomate',
-    ingredients: ['Arepa de maíz', 'Caraotas negras cocidas', 'Aguacate', 'Tomate'],
+    ingredientIds: ['arepa', 'caraotas', 'aguacate', 'tomate'],
     method: 'Abre la arepa caliente, rellénala con las caraotas y el aguacate, y sirve el tomate al lado.',
   },
   pollo: {
     name: 'Pollo, arroz y aguacate', photo: 'bowl-stricto.jpg', alt: 'Bowl de pollo, arroz, aguacate, garbanzos y pepino',
-    ingredients: ['Pechuga de pollo cocida', 'Arroz cocido', 'Garbanzos', 'Aguacate', 'Pepino'],
+    ingredientIds: ['pollo', 'arroz', 'garbanzos', 'aguacate', 'pepino'],
     method: 'Sirve el arroz con el pollo cortado, los garbanzos y el pepino. Termina con aguacate.',
   },
   salmon: {
     name: 'Salmón con arroz y verduras', photo: 'stricto-escaner-editorial.jpg', focal: 'right center', alt: 'Salmón con arroz, aguacate, rábanos y hojas verdes',
-    ingredients: ['Salmón cocido', 'Arroz cocido', 'Aguacate', 'Rábanos', 'Hojas verdes'],
+    ingredientIds: ['salmon', 'arroz', 'aguacate', 'rabanos', 'hojas'],
     method: 'Coloca el salmón cocido sobre el arroz y acompáñalo con aguacate, rábanos y hojas verdes.',
   },
   tofu: {
     name: 'Tofu, quinoa y brócoli', photo: 'dieta-tofu.jpg', alt: 'Bowl de tofu dorado, quinoa, brócoli y zanahoria',
-    ingredients: ['Tofu firme', 'Quinoa cocida', 'Brócoli', 'Zanahoria'],
+    ingredientIds: ['tofu', 'quinoa', 'brocoli', 'zanahoria'],
     method: 'Dora el tofu, cocina las verduras y sirve todo sobre la quinoa.',
   },
   manzana: {
     name: 'Manzana y almendras', photo: 'dieta-manzana.jpg', alt: 'Rodajas de manzana roja y almendras en un plato',
-    ingredients: ['Manzana', 'Almendras'],
+    ingredientIds: ['manzana', 'almendras'],
     method: 'Corta la manzana y sírvela con las almendras.',
   },
 };
 
 const dietMenus = {
-  gain: {mixed: ['arepa', 'pollo', 'salmon', 'avena'], plant: ['arepa', 'tofu', 'avena', 'manzana']},
-  lose: {mixed: ['avena', 'pollo', 'tofu', 'manzana'], plant: ['avena', 'tofu', 'arepa', 'manzana']},
-  recomp: {mixed: ['avena', 'pollo', 'salmon', 'manzana'], plant: ['avena', 'tofu', 'arepa', 'manzana']},
-  general: {mixed: ['avena', 'pollo', 'tofu', 'manzana'], plant: ['arepa', 'tofu', 'avena', 'manzana']},
+  gain: {mixed: ['arepas:huevo-cocido:aguacate:pepino', 'bowls:res:arroz:brocoli', 'salmon', 'avena'], plant: ['arepa', 'tofu', 'pastas:lentejas:espinaca:salsa-tomate', 'avena']},
+  lose: {mixed: ['huevos:batata:espinaca:aguacate', 'pollo', 'ensaladas:pavo:lechuga:zanahoria', 'manzana'], plant: ['avena', 'tofu', 'arepa', 'manzana']},
+  recomp: {mixed: ['huevos:batata:espinaca:aguacate', 'bowls:pavo:quinoa:zanahoria', 'salmon', 'manzana'], plant: ['avena', 'tofu', 'pastas:garbanzos:brocoli:salsa-tomate', 'manzana']},
+  general: {mixed: ['huevos:batata:espinaca:aguacate', 'pollo', 'tofu', 'manzana'], plant: ['arepa', 'tofu', 'pastas:garbanzos:brocoli:salsa-tomate', 'avena']},
 };
 
 function recipeFor(id, preference) {
-  const recipe = dietRecipes[id];
+  const recipe = Object.hasOwn(dietRecipes, id) ? dietRecipes[id] : dietCatalogById.get(id);
   if (id !== 'avena' || preference !== 'vegan') return recipe;
-  return {...recipe, name: 'Yogur de soya con avena y fruta', ingredients: ['Yogur de soya natural', ...recipe.ingredients.slice(1)]};
+  return {...recipe, name: 'Yogur de soya con avena y fruta', ingredientIds: ['yogur-soya', ...recipe.ingredientIds.slice(1)]};
 }
 
 function adultBodyIndex(weight, height) {
