@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es" data-theme="pulso">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#fff8f2">
+  <meta name="description" content="Stricto · Ventanas de ayuno, diario de alimentos y orientación según tu objetivo.">
+  <title>Stricto — Ayuno y nutrición</title>
+  <link rel="icon" href="assets/stricto-marca.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/stricto-app-192.png">
+  <link rel="manifest" href="stricto.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+  <script src="catalog.js" defer></script>
+  <script src="diet-plan.js" defer></script>
+  <script src="vision.js" defer></script>
+  <script src="diet-ui.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#hoy" aria-label="Stricto, inicio">
+      <img class="brand-inverse" src="assets/stricto-logo-inverso.png" alt="" width="1099" height="288">
+      <img class="brand-compact" src="assets/stricto-marca.png" alt="" width="256" height="256">
+    </a>
+    <nav class="navigation" aria-label="Menú principal">
+      <span class="nav-caption">Mi espacio</span>
+      <a href="#hoy" data-nav="hoy" aria-label="Hoy"><span data-icon="home"></span><span>Hoy</span></a>
+      <a href="#ayuno" data-nav="ayuno" aria-label="Ayuno"><span data-icon="clock"></span><span>Ayuno</span></a>
+      <button class="mobile-scan" type="button" data-action="scan"><span data-icon="scan"></span><span>Escanear</span></button>
+      <a href="#diario" data-nav="diario" aria-label="Diario"><span data-icon="book"></span><span>Diario</span></a>
+      <a href="#dietas" data-nav="dietas" aria-label="Dietas"><span data-icon="bowl"></span><span>Dietas</span></a>
+      <a class="desktop-profile" href="#objetivo" data-nav="objetivo" aria-label="Mi perfil"><span data-icon="target"></span><span>Mi perfil</span></a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="side-window">
+        <span class="side-window-icon" data-icon="moon"></span>
+        <div><span>Ventana de ayuno</span><strong id="sidebar-window">14:10</strong></div>
+      </div>
+      <button class="side-help" type="button" data-action="sources"><span data-icon="info"></span> Guía y fuentes</button>
+    </div>
+  </aside>
+
+  <main class="workspace" id="main">
+    <header class="topbar">
+      <a class="brand mobile-brand" href="#hoy" aria-label="Stricto, inicio">
+        <img class="brand-standard" src="assets/stricto-logo.png" alt="" width="1099" height="288">
+        <img class="brand-inverse" src="assets/stricto-logo-inverso.png" alt="" width="1099" height="288">
+      </a>
+      <div class="today-date"><span data-icon="calendar"></span><time id="date-today"></time></div>
+      <div class="top-actions">
+        <button class="example-button" id="example-button" type="button" data-action="personal"><i></i><span>Vista de ejemplo</span></button>
+        <button class="button button-outline design-trigger" type="button" data-action="designs"><span data-icon="palette"></span><span>Diseños</span></button>
+        <a class="avatar" id="avatar" href="#objetivo" aria-label="Mi perfil">S</a>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <section id="view-hoy" class="view" aria-labelledby="home-title">
+        <div class="page-heading">
+          <div><div class="mobile-date"><span data-icon="calendar"></span><time id="mobile-date"></time></div><h1 id="home-title">Tu plan de hoy<span>.</span></h1><p class="home-intro">Organiza tus horarios y tus comidas según tu objetivo.</p></div>
+          <a class="goal-badge" href="#objetivo"><span class="badge-symbol" data-icon="target"></span><span id="home-goal"></span><span data-icon="chevron"></span></a>
+        </div>
+        <div class="dashboard-grid">
+          <article class="card fast-card" id="home-fast">
+            <header class="card-heading"><div class="heading-title"><span class="card-icon" data-icon="clock"></span><h2>Ventana de ayuno</h2></div><span class="fast-badge" data-fast="plan">14:10</span></header>
+            <div class="fast-body">
+              <div class="timer" data-fast="ring">
+                <div class="timer-dial" aria-hidden="true"></div>
+                <div class="timer-reading"><small data-fast="timer-label">TIEMPO DE AYUNO</small><strong data-fast="elapsed">12:42:18</strong><span data-fast="duration">de 14 h</span></div>
+              </div>
+              <div class="fast-details">
+                <div class="fast-status"><i></i><span data-fast="status">Ayuno en curso</span></div>
+                <p data-fast="event">Próxima comida</p>
+                <strong data-fast="event-time">10:00 a. m.</strong>
+                <a class="button button-light" href="#ayuno">Gestionar ayuno <span data-icon="arrow"></span></a>
+              </div>
+            </div>
+            <footer class="fast-footer"><span><span data-icon="sun"></span> Ventana de comida</span><strong data-fast="schedule">10:00 a. m. – 8:00 p. m.</strong></footer>
+          </article>
+
+          <article class="card scan-card" id="home-scan" data-action="scan">
+            <div class="scan-photo" aria-hidden="true">
+              <img src="assets/stricto-escaner-editorial.jpg" alt="" width="1050" height="700">
+              <span class="scan-frame"><i></i><i></i><i></i><i></i></span>
+            </div>
+            <div class="scan-card-content">
+              <h2>Escáner de alimentos</h2>
+              <p>Estima las calorías de tu plato.</p>
+              <button class="button scan-button" type="button" data-action="scan"><span data-icon="camera"></span> Escanear comida</button>
+            </div>
+          </article>
+
+          <article class="card nutrition-card" id="home-nutrition"></article>
+          <article class="card meals-card" id="home-meals"></article>
+
+          <article class="card suggestion-card" id="home-suggestion"></article>
+        </div>
+      </section>
+
+      <section id="view-ayuno" class="view" aria-labelledby="fast-title" hidden>
+        <div class="page-heading"><div><h1 id="fast-title">Mi ayuno<span>.</span></h1><p>Configura tu horario y registra tus ventanas de ayuno.</p></div></div>
+        <div id="fast-content"></div>
+      </section>
+
+      <section id="view-diario" class="view" aria-labelledby="diary-title" hidden>
+        <div class="page-heading"><div><h1 id="diary-title">Diario de comidas<span>.</span></h1><p>Revisa tus comidas y sus estimaciones nutricionales.</p></div><button type="button" class="button button-primary" data-action="manual"><span data-icon="plus"></span> Registrar comida</button></div>
+        <div id="diary-content"></div>
+      </section>
+
+      <section id="view-objetivo" class="view" aria-labelledby="goal-title" hidden>
+        <div class="page-heading"><div><h1 id="goal-title">Mi perfil<span>.</span></h1><p>Guarda tus medidas y ajusta el plan a tu objetivo.</p></div><button class="button button-outline" type="button" data-action="download-profile"><span data-icon="download"></span> Descargar mis datos</button></div>
+        <div id="goal-content"></div>
+      </section>
+      <section id="view-dietas" class="view" aria-labelledby="diet-title" hidden>
+        <div class="page-heading"><div><h1 id="diet-title">Dietas<span>.</span></h1><p>Ideas para tus comidas y tu ventana de ayuno.</p></div></div>
+        <div id="diet-content"></div>
+      </section>
+      <footer class="page-footer"><button type="button" data-action="sources">Guía y fuentes</button><span>Los valores de alimentos y porciones son aproximados.</span></footer>
+    </div>
+  </main>
+
+  <dialog id="dialog" aria-labelledby="dialog-title"><div id="dialog-content"></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

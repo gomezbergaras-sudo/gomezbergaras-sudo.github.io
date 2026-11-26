@@ -1,0 +1,16 @@
+{
+  "name": "Stricto",
+  "short_name": "Stricto",
+  "description": "Ventanas de ayuno, escáner de alimentos y diario de comidas.",
+  "lang": "es",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff8f2",
+  "theme_color": "#fff8f2",
+  "icons": [
+    {"src": "assets/stricto-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "assets/stricto-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
