@@ -553,8 +553,8 @@ function newComposer(mode) {
     <button type="button" class="button button-outline" data-action="choose-image">${icon('upload')} Cargar foto</button></div>
     <input type="file" id="camera-file" accept="image/*" capture="environment" hidden>
     <input type="file" id="scan-file" accept="image/*" hidden>
-    <button type="button" class="text-button" data-action="sample">Probar con un plato de ejemplo</button>
-    <p class="helper">El reconocimiento usa un catálogo limitado y analiza la foto en tu navegador. La primera descarga requiere internet.</p>
+    <button type="button" class="text-button" data-action="sample">Ver ejemplo con ingredientes precargados</button>
+    <p class="helper">La foto se analiza en tu navegador. La primera vez se descargan unos 85 MB para reconocer alimentos.</p>
   </div><img id="scan-preview" alt="Foto del plato seleccionado" hidden>
   <button type="button" id="analyze-photo" class="button button-outline" data-action="analyze" hidden>Reconocer alimentos</button>
   <p id="scan-status" class="helper" role="status" hidden></p><div id="scan-matches" class="stack-actions" hidden></div>` : '';
@@ -641,7 +641,8 @@ function loadPhoto(file) {
 }
 
 function scanWithWorker(file, candidates, report) {
-  if (location.protocol === 'file:' || typeof Worker === 'undefined') return analyzeFoodPhoto(file, candidates, report);
+  if (location.protocol === 'file:' || typeof Worker === 'undefined' || typeof OffscreenCanvas !== 'function'
+    || typeof createImageBitmap !== 'function') return analyzeFoodPhoto(file, candidates, report);
   visionWorker ??= new Worker('vision.js');
   const worker = visionWorker;
   const id = ++scanRequestId;
@@ -680,7 +681,7 @@ async function recognizePhoto() {
   const stillOpen = () => dialog.open && composer === current && current.photo === file;
   const button = document.querySelector('#analyze-photo');
   button.disabled = true;
-  const candidates = foods.filter(food => food.visual).map(({id, visual}) => ({id, visual}));
+  const candidates = foods.filter(food => food.visual).map(food => food.id);
   try {
     const matches = await scanWithWorker(file, candidates, progress => {
       if (stillOpen()) renderScanStatus(progress);

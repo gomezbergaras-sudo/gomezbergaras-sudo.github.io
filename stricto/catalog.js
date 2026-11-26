@@ -1,5 +1,6 @@
 const foods = [
   ['pollo', 'Pechuga de pollo cocida', 'sliced grilled chicken breast', 165, 31, 0, 3.6],
+  ['cerdo', 'Lomo de cerdo cocido', 'sliced roasted pork loin', 143, 26.2, 0, 3.5],
   ['arroz', 'Arroz blanco cocido', 'cooked plain white rice', 130, 2.7, 28.2, 0.3],
   ['aguacate', 'Aguacate', 'sliced green avocado', 160, 2, 8.5, 14.7],
   ['garbanzos', 'Garbanzos cocidos', 'cooked round chickpeas', 164, 8.9, 27.4, 2.6],
