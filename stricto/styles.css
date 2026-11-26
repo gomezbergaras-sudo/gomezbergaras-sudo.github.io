@@ -165,11 +165,14 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .home-energy-values .calorie-total { margin: 0; }
 .home-energy-target { color: var(--muted); font-size: 13px; }
 .home-energy-target strong { color: var(--ink); }
+.diary-energy { display: grid; gap: 8px; margin-bottom: 16px; }
+.home-energy-status { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; color: var(--muted); font-size: 12px; }
 .home-energy-bar, .home-energy-track { width: 100%; height: 10px; border: 0; border-radius: 99px; background: var(--soft); accent-color: var(--accent); }
-.home-energy-bar { appearance: none; overflow: hidden; }
+.home-energy-bar { --energy-fill: var(--accent); appearance: none; overflow: hidden; }
+.home-energy-bar.over-target { --energy-fill: var(--carbs); }
 .home-energy-bar::-webkit-progress-bar { background: var(--soft); border-radius: 99px; }
-.home-energy-bar::-webkit-progress-value { background: var(--accent); border-radius: 99px; }
-.home-energy-bar::-moz-progress-bar { background: var(--accent); border-radius: 99px; }
+.home-energy-bar::-webkit-progress-value { background: var(--energy-fill); border-radius: 99px; }
+.home-energy-bar::-moz-progress-bar { background: var(--energy-fill); border-radius: 99px; }
 .meals-card { grid-area: meals; }
 .suggestion-card { grid-area: suggest; }
 .card-heading > .muted { font-size: 12px; font-weight: 620; }
@@ -210,6 +213,8 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .fast-settings .timer { margin: 26px auto; }
 .fast-settings .fast-body { gap: 26px; }
 .fast-settings .fast-details .button { width: max-content; white-space: normal; }
+#fast-action { display: grid; justify-items: start; }
+#fast-action .text-button { min-height: 44px; color: var(--hero-ink); }
 .sub-card h2 { margin-bottom: 12px; }
 .sub-card form, .form-stack { display: grid; gap: 14px; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -223,6 +228,7 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .stack-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
 .fast-history { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .fast-history li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.fast-history small { display: block; margin-top: 3px; color: var(--muted); }
 .empty { padding: 11px 0; color: var(--muted); line-height: 1.55; }
 .menu-list { padding-left: 21px; margin: 12px 0; display: grid; gap: 7px; line-height: 1.45; }
 .diary-date { width: auto; }
@@ -289,6 +295,9 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .diet-period { font-size: 11px; color: var(--accent); font-weight: 740; }
 .diet-recipe h3 { font-size: 16px; line-height: 1.2; letter-spacing: -.025em; }
 .diet-recipe-link { display: inline-flex; gap: 6px; align-items: center; width: fit-content; }
+.diet-recipe-actions { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.meal-swap-results { display: grid; gap: 8px; }
+.meal-swap-choice { justify-content: space-between; text-align: left; white-space: normal; }
 .diet-catalog { grid-area: catalog; min-width: 0; margin-top: 8px; scroll-margin-top: 80px; }
 .diet-catalog-link { border-color: #ffffff40; color: var(--hero-ink); background: #ffffff13; }
 .diet-filters.card { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }

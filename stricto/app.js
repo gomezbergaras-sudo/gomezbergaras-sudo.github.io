@@ -36,6 +36,7 @@ const designs = {
 const navViews = ['hoy', 'ayuno', 'diario', 'objetivo', 'dietas'];
 const periods = ['Desayuno', 'Almuerzo', 'Cena', 'Colación'];
 const macroGroups = [['protein', 'Proteínas', 'protein'], ['carbs', 'Carbohidratos', 'carbs'], ['fat', 'Grasas', 'fat']];
+const energyFields = ['kcal', 'protein', 'carbs', 'fat'];
 const localProfileStorageKey = 'stricto-v1';
 let storageKey = localProfileStorageKey;
 let workspaceAccount = null;
@@ -48,7 +49,7 @@ const strengthOptions = ['0', '1', '2', '3', '4', '5 o más'];
 const initialState = {
   demo: true, theme: 'pulso', goal: 'recomp', name: '', foodPreference: 'mixed', strengthDays: '0',
   profile: emptyProfile, measurements: [],
-  targets: {kcal: '', protein: '', carbs: '', fat: ''}, allowFasting: false, duration: 0, fastStart: '20:00', fast: null, fastHistory: [], meals: [],
+  targets: {kcal: '', protein: '', carbs: '', fat: ''}, allowFasting: false, duration: 0, fastStart: '20:00', fast: null, fastHistory: [], meals: [], mealSwaps: {},
 };
 
 function profileStorageKey(id) {
@@ -96,6 +97,7 @@ function readState(id) {
     foodPreference: Object.hasOwn(preferences, saved?.foodPreference) ? saved.foodPreference : initialState.foodPreference,
     profile: {...emptyProfile, ...saved?.profile}, targets: {...initialState.targets, ...saved?.targets},
     meals: Array.isArray(saved?.meals) ? saved.meals.slice() : [],
+    mealSwaps: {...saved?.mealSwaps},
     measurements: Array.isArray(saved?.measurements) ? saved.measurements.slice() : [],
     fastHistory: Array.isArray(saved?.fastHistory) ? saved.fastHistory.slice() : [],
   };
@@ -350,30 +352,33 @@ function progress(value, target, color) {
 
 function nutritionMarkup(meals, label = 'Hoy', showCalories = true) {
   const total = totals(meals);
-  const targets = state.demo ? {kcal: 2000, protein: 135, carbs: 210, fat: 70}
-    : {...state.targets, kcal: showCalories ? currentDietPlan().calories.target : 0};
+  const targets = state.demo ? {protein: 135, carbs: 210, fat: 70} : state.targets;
   return `<header class="card-heading"><div class="heading-title">${icon('chart', 'card-icon')}<h2>${showCalories ? 'Nutrición' : 'Macronutrientes'}</h2></div><span class="muted">${label}</span></header>
-    ${showCalories ? `<div class="calorie-total"><strong>${number(total.kcal)}</strong><span>${targets.kcal ? `/ ${number(targets.kcal)} ` : ''}kcal ${targets.kcal ? '' : 'registradas'}</span></div>
-    ${progress(total.kcal, targets.kcal)}` : ''}
+    ${showCalories ? `<div class="diary-energy">${calorieMeterMarkup(total.kcal, currentDietPlan().calories)}</div>` : ''}
     <div class="macros">${macroGroups.map(([key, name, color]) => `<div class="macro" style="--bar-color:var(--${color})">
       <span><i></i>${name}</span><strong>${number(total[key])} g ${targets[key] ? `<small>/ ${targets[key]} g</small>` : ''}</strong>${progress(total[key], targets[key], color)}
     </div>`).join('')}</div>`;
 }
 
-function renderHomeCalories(meals, calories) {
-  const recorded = Math.round(totals(meals).kcal);
+function calorieMeterMarkup(consumed, calories) {
+  const recorded = Math.round(consumed);
   const target = state.demo ? 2000 : calories.target;
-  const sourceLabel = state.demo ? 'Meta de ejemplo' : calories.source === 'manual' ? 'Meta propia' : 'Meta estimada';
+  const label = state.demo ? 'Meta de ejemplo' : calories.source === 'manual' ? 'Meta propia' : 'Meta diaria estimada';
   const difference = target - recorded;
   const status = difference > 0 ? `${number(difference)} kcal hasta la meta`
     : difference < 0 ? `${number(-difference)} kcal por encima de la meta` : 'Meta alcanzada';
+  return `<div class="home-energy-values"><div class="calorie-total"><strong>${number(recorded)}</strong><span>kcal consumidas</span></div>
+    ${target ? `<span class="home-energy-target">${label} <strong>${number(target)} kcal</strong></span>` : ''}</div>
+    ${target ? `<progress class="home-energy-bar${difference < 0 ? ' over-target' : ''}" value="${Math.min(recorded, target)}" max="${target}" aria-label="Calorías consumidas frente a la meta" aria-valuetext="${number(recorded)} de ${number(target)} kcal"></progress>
+      <div class="home-energy-status"><span>${status}</span><span>${number(recorded / target * 100)} % de la meta</span></div>`
+    : `<div class="home-energy-track" aria-hidden="true"></div><p class="helper">${calories.message}</p>`}`;
+}
+
+function renderHomeCalories(meals, calories) {
   document.querySelector('#home-energy').innerHTML = `
     <header class="card-heading"><div class="heading-title">${icon('chart', 'card-icon')}<h2>Calorías de hoy</h2></div>
-      <a class="text-button" href="#objetivo">${target && !state.demo ? 'Ver mi meta' : 'Configurar mi meta'}</a></header>
-    <div class="home-energy-values"><div class="calorie-total"><strong>${number(recorded)}</strong><span>kcal registradas</span></div>
-      ${target ? `<span class="home-energy-target">${sourceLabel} <strong>${number(target)} kcal</strong></span>` : ''}</div>
-    ${target ? `<progress class="home-energy-bar" value="${Math.min(recorded, target)}" max="${target}" aria-label="Calorías registradas frente a la meta" aria-valuetext="${number(recorded)} de ${number(target)} kcal"></progress>
-      <p class="helper">${status}</p>` : '<div class="home-energy-track" aria-hidden="true"></div><p class="helper">Completa tu perfil para estimar la meta diaria o guarda una meta propia.</p>'}`;
+      <a class="text-button" href="#objetivo">${calories.target && !state.demo ? 'Ver mi meta' : 'Configurar mi meta'}</a></header>
+    ${calorieMeterMarkup(totals(meals).kcal, calories)}`;
 }
 
 function mealsMarkup(meals, detailed = false) {
@@ -391,7 +396,7 @@ function renderHome() {
   const lunch = plan.servings.find(serving => serving.period === 'Almuerzo').dishes[0];
   renderHomeCalories(meals, plan.calories);
   document.querySelector('#home-nutrition').innerHTML = nutritionMarkup(meals, 'Hoy', false);
-  document.querySelector('#home-meals').innerHTML = `<header class="card-heading"><div class="heading-title">${icon('bowl', 'card-icon')}<h2>Comidas de hoy</h2></div><a href="#diario" class="text-button">Ver diario</a></header>${mealsMarkup(meals.slice(0, 3))}`;
+  document.querySelector('#home-meals').innerHTML = `<header class="card-heading"><div class="heading-title">${icon('bowl', 'card-icon')}<h2>Comidas de hoy</h2></div><a href="#diario" class="text-button">Ver diario</a></header>${mealsMarkup(meals.slice(0, 3), !state.demo)}`;
   document.querySelector('#home-suggestion').innerHTML = `<header class="card-heading"><div class="heading-title">${icon('leaf', 'card-icon')}<h2>Idea de comida para tu objetivo</h2></div></header>
     <p><strong>${lunch.name}.</strong> ${plan.tailored ? goalOptions[state.goal].summary : 'Explora los platos y guarda tu perfil para adaptar el plan.'}</p><a class="button button-outline" href="#dietas">Ver mi plan de comidas ${icon('arrow')}</a>`;
 }
@@ -401,12 +406,12 @@ function planLabel(duration) {
 }
 
 function fastReadings() {
-  if (state.demo) return {plan: '14:10', 'timer-label': 'TIEMPO DE AYUNO', elapsed: '12:42:18', duration: 'de 14 h', status: 'Ayuno en curso', event: 'Próxima comida', 'event-time': '10:00 a. m.', schedule: '10:00 a. m. – 8:00 p. m.', ring: 90.75};
+  if (state.demo) return {plan: '14:10', 'timer-label': 'TIEMPO DE AYUNO', elapsed: '12:42:18', duration: 'de 14 h', status: 'Ayuno en curso', event: 'Próxima comida', 'event-time': '10:00 a. m.', schedule: '10:00 a. m. – 8:00 p. m.', ring: 90.75, started: ''};
   const now = new Date();
   const active = state.fast;
   const start = state.fastStart;
   const opens = addHours(start, state.duration);
-  const readings = {plan: planLabel(state.duration), 'timer-label': 'TIEMPO DE AYUNO', elapsed: '00:00:00', duration: state.duration ? `de ${state.duration} h` : '', status: 'Temporizador en pausa', event: '', 'event-time': 'Ayuno opcional', schedule: 'Horario flexible', ring: 0};
+  const readings = {plan: planLabel(state.duration), 'timer-label': 'TIEMPO DE AYUNO', elapsed: '00:00:00', duration: state.duration ? `de ${state.duration} h` : '', status: 'Temporizador en pausa', event: '', 'event-time': 'Ayuno opcional', schedule: 'Horario flexible', ring: 0, started: ''};
   if (state.duration) {
     const offset = (atMinutes(localTime(now)) - atMinutes(start) + 1440) % 1440;
     const inWindow = offset >= state.duration * 60;
@@ -418,11 +423,13 @@ function fastReadings() {
   if (active) {
     const duration = active.ends - active.started;
     const elapsed = now.getTime() - active.started;
+    readings.plan = planLabel(duration / hour);
     readings.elapsed = elapsedTime(elapsed);
     readings.duration = `de ${duration / hour} h`;
     readings.status = 'Ayuno en curso';
     readings.event = 'El temporizador termina a las';
     readings['event-time'] = showTime(localTime(new Date(active.ends)));
+    readings.started = `Inicio · ${fastMoment(active.started)}`;
     readings.ring = Math.max(0, Math.min(100, elapsed / duration * 100));
   }
   return readings;
@@ -433,20 +440,33 @@ function renderFastReadings() {
   document.querySelector('#sidebar-window').textContent = readings.plan;
   for (const element of document.querySelectorAll('[data-fast]')) {
     const key = element.dataset.fast;
+    if (key === 'started') element.hidden = !readings.started;
     if (key === 'ring') element.style.setProperty('--progress', `${readings.ring}%`);
     else if (element.textContent !== readings[key]) element.textContent = readings[key];
   }
 }
 
+function fastMoment(timestamp) {
+  const date = new Date(timestamp);
+  return `${date.toLocaleDateString('es-VE', {day: 'numeric', month: 'short'})}, ${showTime(localTime(date))}`;
+}
+
+function canStartFast() {
+  return !state.demo && state.allowFasting && state.duration > 0 && !fastingSafety(state.profile);
+}
+
 function fastActionMarkup() {
-  return state.demo ? '<button type="button" class="button button-light" data-action="personal">Pasar a mi espacio</button>'
-    : state.fast ? '<button type="button" class="button button-light" data-action="stop-fast">Terminar ayuno</button>'
-    : `<button type="button" class="button button-light" data-action="start-fast"${state.duration && !fastingSafety(state.profile) ? '' : ' disabled'}>Iniciar ahora</button>`;
+  if (state.demo) return '<button type="button" class="button button-light" data-action="personal">Pasar a mi espacio</button>';
+  if (state.fast) return `<button type="button" class="button button-light" data-action="stop-fast">Terminar ayuno</button>
+    <button type="button" class="text-button" data-action="edit-fast-start"${canStartFast() ? '' : ' hidden'}>Corregir inicio</button>`;
+  const enabled = canStartFast();
+  return `<button type="button" class="button button-light" data-action="start-fast"${enabled ? '' : ' disabled'}>Iniciar ahora</button>
+    ${enabled ? '<button type="button" class="text-button" data-action="log-fast-start">Registrar hora de inicio</button>' : ''}`;
 }
 
 function fastHistoryMarkup() {
   const history = state.fastHistory.slice(0, 14);
-  return history.length ? `<ul class="fast-history">${history.map(session => `<li><span>${new Date(session.ended).toLocaleDateString('es-VE', {day: 'numeric', month: 'short'})} · ${session.completed ? 'Completado' : 'Finalizado'}</span><strong class="tabular">${elapsedTime(session.ended - session.started)}</strong></li>`).join('')}</ul>` : '<p class="empty">Los ayunos iniciados con el temporizador aparecerán aquí al terminar.</p>';
+  return history.length ? `<ul class="fast-history">${history.map(session => `<li><span>${session.completed ? 'Completado' : 'Finalizado'}<small>Inicio · ${fastMoment(session.started)}</small></span><strong class="tabular">${elapsedTime(session.ended - session.started)}</strong></li>`).join('')}</ul>` : '<p class="empty">Los ayunos aparecerán aquí al terminar.</p>';
 }
 
 function renderFastPage() {
@@ -456,7 +476,7 @@ function renderFastPage() {
     <div class="sub-stack"><article class="card fast-card fast-settings">
       <header class="card-heading"><div class="heading-title">${icon('clock', 'card-icon')}<h2>Temporizador</h2></div><span class="fast-badge" data-fast="plan"></span></header>
       <div class="fast-body"><div class="timer" data-fast="ring"><div class="timer-dial"></div><div class="timer-reading"><small data-fast="timer-label"></small><strong data-fast="elapsed"></strong><span data-fast="duration"></span></div></div>
-        <div class="fast-details"><div class="fast-status"><i></i><span data-fast="status"></span></div><p data-fast="event"></p><strong data-fast="event-time"></strong><div id="fast-action">${fastActionMarkup()}</div></div></div>
+        <div class="fast-details"><div class="fast-status"><i></i><span data-fast="status"></span></div><p data-fast="event"></p><strong data-fast="event-time"></strong><p data-fast="started" hidden></p><div id="fast-action">${fastActionMarkup()}</div></div></div>
       <footer class="fast-footer"><span>${icon('sun')} Ventana de comida</span><strong data-fast="schedule"></strong></footer>
     </article>
     <article class="card sub-card"><h2>Ayunos registrados</h2><div id="fast-history">${fastHistoryMarkup()}</div></article></div>
@@ -485,7 +505,7 @@ function updateSchedulePreview() {
 
 function endFast(now, completed) {
   if (!state.fast) return;
-  state.fastHistory = [{started: state.fast.started, ended: now, completed}, ...state.fastHistory];
+  state.fastHistory = [{started: state.fast.started, ended: now, completed}, ...state.fastHistory].sort((a, b) => b.ended - a.ended);
   state.fast = null;
   saveState();
 }
@@ -500,8 +520,49 @@ function updateClock() {
     }
     tell('Terminó el temporizador de ayuno.');
   }
-  if (document.querySelector('#date-today').dateTime !== localDate()) renderHeader();
-  renderFastReadings();
+  if (document.querySelector('#date-today').dateTime !== localDate()) renderPage();
+  else renderFastReadings();
+}
+
+function openFastStart(editing) {
+  if (!canStartFast() || editing !== Boolean(state.fast)) return;
+  const start = new Date(state.fast?.started ?? Date.now());
+  openDialog('fast-start', editing ? 'Corregir inicio del ayuno' : 'Registrar hora de inicio',
+    'Elige la fecha y la hora en que comenzaste.', `<form id="fast-start-form" class="form-stack" data-started="${editing ? state.fast.started : ''}">
+      <div class="fields"><label class="field">Fecha de inicio<input type="date" name="date" value="${localDate(start)}" max="${localDate()}" required></label>
+      <label class="field">Hora de inicio<input type="time" name="time" value="${localTime(start)}" required aria-describedby="fast-start-info"></label></div>
+      <p id="fast-start-info" class="helper">El temporizador cuenta desde esa hora.</p>
+      <button type="submit" class="button button-primary">Guardar inicio</button>
+    </form>`);
+}
+
+function saveFastStart(form) {
+  const {date, time} = form.elements;
+  const editing = form.dataset.started !== '';
+  if (!canStartFast() || editing !== Boolean(state.fast) || (editing && Number(form.dataset.started) !== state.fast.started)) {
+    dialog.close();
+    tell('El temporizador cambió. Vuelve a abrir el registro.');
+    return;
+  }
+  const start = new Date(`${date.value}T${time.value}`);
+  const started = start.getTime();
+  if (!Number.isFinite(started) || localDate(start) !== date.value || localTime(start) !== time.value || started > Date.now()) {
+    time.setCustomValidity('Elige una fecha y hora válidas que ya hayan pasado.');
+    time.reportValidity();
+    return;
+  }
+  const duration = editing ? state.fast.ends - state.fast.started : state.duration * hour;
+  const ends = started + duration;
+  const now = Date.now();
+  if (state.fastHistory.some(session => started < session.ended && Math.min(now, ends) > session.started)) {
+    time.setCustomValidity('Ese intervalo coincide con un ayuno que ya registraste.');
+    time.reportValidity();
+    return;
+  }
+  state.fast = {started, ends};
+  if (ends <= now) endFast(ends, true);
+  dialog.close();
+  tell(ends <= now ? 'Ayuno completado añadido al historial.' : 'Hora de inicio guardada.');
 }
 
 function renderJournal() {
@@ -546,8 +607,8 @@ function openSources() {
     </ul>`);
 }
 
-function newComposer(mode) {
-  composer = {image: '', photo: null, sample: false, rows: [], analyzing: false};
+function newComposer(mode, meal) {
+  composer = {image: '', photo: null, sample: false, rows: [], analyzing: false, mealId: meal?.id};
   const scanMarkup = mode === 'scan' ? `<div class="scan-upload">${icon('scan')}<div class="stack-actions">
     <button type="button" class="button button-primary" data-action="take-photo">${icon('camera')} Tomar foto</button>
     <button type="button" class="button button-outline" data-action="choose-image">${icon('upload')} Cargar foto</button></div>
@@ -565,26 +626,44 @@ function newComposer(mode) {
   </div>
   <p id="scan-status" class="helper" role="status" hidden></p><div id="scan-matches" class="stack-actions" hidden></div>` : '';
   const defaultPeriod = new Date().getHours() < 11 ? 'Desayuno' : new Date().getHours() < 16 ? 'Almuerzo' : 'Cena';
-  openDialog(mode, mode === 'scan' ? 'Escáner de alimentos' : 'Registrar comida', mode === 'scan' ? 'Revisa las sugerencias y escribe los gramos de cada alimento que quieras registrar.' : 'Selecciona alimentos y escribe el peso de cada porción.', `${scanMarkup}
-    <form id="meal-form" class="form-stack"><label class="field">Nombre de la comida<input name="name" maxlength="70" placeholder="Ej. Arepa con huevo" required></label>
-    <div class="fields"><label class="field">Comida<select name="period">${periods.map(period => `<option${period === defaultPeriod ? ' selected' : ''}>${period}</option>`).join('')}</select></label><label class="field">Fecha<input type="date" name="date" value="${view === 'diario' ? journalDay : localDate()}" required></label></div>
+  const date = meal?.date ?? (view === 'diario' ? journalDay : localDate());
+  const title = meal ? 'Editar comida' : mode === 'scan' ? 'Escáner de alimentos' : 'Registrar comida';
+  openDialog(mode, title, mode === 'scan' ? 'Revisa las sugerencias y escribe los gramos de cada alimento que quieras registrar.' : 'Selecciona alimentos y escribe el peso de cada porción.', `${scanMarkup}
+    <form id="meal-form" class="form-stack"><label class="field">Nombre de la comida<input name="name" maxlength="70" value="${escapeHtml(meal?.name)}" placeholder="Ej. Arepa con huevo" required></label>
+    <div class="fields"><label class="field">Comida<select name="period">${selectOptions(periods.map(period => [period, period]), meal?.period ?? defaultPeriod)}</select></label><label class="field">Fecha<input type="date" name="date" value="${date}" required></label></div>
     <div class="ingredient-list" id="ingredients"></div>
     <button class="text-button" type="button" data-action="add-food">${icon('plus')} Agregar alimento</button>
     <p class="helper">Incluye aceites, salsas y otros ingredientes que conozcas. Para un alimento fuera del catálogo puedes usar su etiqueta nutricional.</p>
     </form>`, `<div class="scan-totals" aria-live="polite"><strong id="scan-kcal">≈ 0 kcal</strong><small id="scan-macros">0 g proteína · 0 g carbohidratos · 0 g grasa</small></div>
-    <button type="submit" form="meal-form" class="button button-primary" id="save-meal" disabled>Guardar comida</button>`);
-  if (mode === 'manual') addFood();
+    <button type="submit" form="meal-form" class="button button-primary" id="save-meal" disabled>${meal ? 'Guardar cambios' : 'Guardar comida'}</button>`);
+  if (mode === 'manual' && !meal?.ingredients?.length) addFood();
+  if (meal) {
+    for (const item of meal.ingredients ?? []) addSavedIngredient(item);
+    dialogContent.querySelector('#meal-form input').focus();
+  }
 }
 
-function addFood(id = '', grams = '') {
+function addSavedIngredient(item) {
+  if (!(item.grams > 0)) return;
+  const density = Object.fromEntries(energyFields.map(key => [key, Number((item[key] * 100 / item.grams).toFixed(6))]));
+  // Older entries used names alone, including custom foods with catalog names.
+  const food = foods.find(entry => item.foodId != null ? entry.id === item.foodId
+    : entry.name === item.name && energyFields.every(key => Math.abs(entry[key] - density[key]) < 1e-5));
+  if (food) addFood(food.id, item.grams);
+  else addFood('custom', item.grams, {customName: item.name, ...density});
+}
+
+function addFood(id = '', grams = '', custom = {}) {
   const index = composer.rows.length;
-  composer.rows.push({id, grams, customName: '', kcal: '', protein: '', carbs: '', fat: '', active: true});
+  const row = {id, grams, customName: '', kcal: '', protein: '', carbs: '', fat: '', active: true, ...custom};
+  const manual = id === 'custom';
+  composer.rows.push(row);
   const list = document.querySelector('#ingredients');
   list.insertAdjacentHTML('beforeend', `<div class="ingredient" data-index="${index}"><div class="ingredient-row">
-    <select aria-label="Alimento ${index + 1}" data-field="id" required><option value="">Elegir alimento</option>${foods.map(food => `<option value="${food.id}"${food.id === id ? ' selected' : ''}>${food.name}</option>`).join('')}<option value="custom">Otro alimento (etiqueta)</option></select>
-    <label class="field"><input aria-label="Peso en gramos del alimento ${index + 1}" placeholder="Peso" data-field="grams" type="number" min="0.1" max="3000" step="0.1" value="${grams}" required><span>g</span></label>
+    <select aria-label="Alimento ${index + 1}" data-field="id" required><option value="">Elegir alimento</option>${foods.map(food => `<option value="${food.id}"${food.id === id ? ' selected' : ''}>${food.name}</option>`).join('')}<option value="custom"${manual ? ' selected' : ''}>Otro alimento (etiqueta)</option></select>
+    <label class="field"><input aria-label="Peso en gramos del alimento ${index + 1}" placeholder="Peso" data-field="grams" type="number" min="0.1" max="3000" step="0.1" value="${escapeHtml(grams)}" required><span>g</span></label>
     <button type="button" class="icon-button" data-action="remove-food" data-index="${index}" aria-label="Quitar alimento ${index + 1}">${icon('x')}</button>
-  </div><div class="custom-food" hidden>${[['customName', 'Alimento (nombre)'], ['kcal', 'kcal por 100 g'], ['protein', 'Proteína por 100 g'], ['carbs', 'Carbohidratos por 100 g'], ['fat', 'Grasa por 100 g']].map(([key, name]) => `<label class="field">${name}<input data-field="${key}" type="${key === 'customName' ? 'text" maxlength="50' : `number" min="0" max="${key === 'kcal' ? 1000 : 100}" step="0.1`}" disabled required></label>`).join('')}</div></div>`);
+  </div><div class="custom-food"${manual ? '' : ' hidden'}>${[['customName', 'Alimento (nombre)'], ['kcal', 'kcal por 100 g'], ['protein', 'Proteína por 100 g'], ['carbs', 'Carbohidratos por 100 g'], ['fat', 'Grasa por 100 g']].map(([key, name]) => `<label class="field">${name}<input data-field="${key}" ${key === 'customName' ? 'type="text" maxlength="50"' : `type="number" min="0" max="${key === 'kcal' ? 1000 : 100}" step="any"`} value="${escapeHtml(row[key])}"${manual ? '' : ' disabled'} required></label>`).join('')}</div></div>`);
   drawIcons(list);
   renderMealEstimate();
 }
@@ -718,7 +797,7 @@ async function recognizePhoto() {
 }
 
 function completeRows() {
-  return composer.rows.filter(row => row.active && row.id && Number(row.grams) > 0 && (row.id !== 'custom' || (row.customName.trim() && ['kcal', 'protein', 'carbs', 'fat'].every(key => row[key] !== ''))));
+  return composer.rows.filter(row => row.active && row.id && Number(row.grams) > 0 && (row.id !== 'custom' || (row.customName.trim() && energyFields.every(key => row[key] !== ''))));
 }
 
 function ingredientData(row) {
@@ -731,7 +810,7 @@ function renderMealEstimate() {
   const ingredients = complete.map(row => {
     const food = ingredientData(row);
     const scale = Number(row.grams) / 100;
-    return {name: food.name, grams: Number(row.grams), kcal: food.kcal * scale, protein: food.protein * scale, carbs: food.carbs * scale, fat: food.fat * scale};
+    return {foodId: row.id, name: food.name, grams: Number(row.grams), kcal: food.kcal * scale, protein: food.protein * scale, carbs: food.carbs * scale, fat: food.fat * scale};
   });
   const total = totals(ingredients);
   document.querySelector('#scan-kcal').textContent = `≈ ${number(total.kcal)} kcal`;
@@ -741,11 +820,11 @@ function renderMealEstimate() {
 }
 
 function showMeal(id) {
-  const meal = mealsFor(journalDay).find(item => item.id === id);
+  const meal = (state.demo ? exampleMeals : state.meals).find(item => item.id === id);
   if (!meal) return;
   const details = meal.ingredients ? `<ul class="details-list">${meal.ingredients.map(item => `<li>${escapeHtml(item.name)} · ${number(item.grams, 1)} g · ${number(item.kcal)} kcal</li>`).join('')}</ul>` : '<p class="helper">Comida de la vista de ejemplo.</p>';
   openDialog('meal', escapeHtml(meal.name), `${meal.period} · ${showTime(meal.time)}`, `<div><div class="scan-totals"><strong>≈ ${number(meal.kcal)} kcal</strong><small>${number(meal.protein, 1)} g proteína · ${number(meal.carbs, 1)} g carbohidratos · ${number(meal.fat, 1)} g grasa</small></div>${details}</div>
-    ${meal.ingredients ? `<div><button type="button" class="button button-outline" data-action="confirm-delete-meal" data-id="${meal.id}">${icon('trash')} Eliminar comida</button></div>` : ''}`);
+    ${!state.demo ? `<div class="stack-actions"><button type="button" class="button button-primary" data-action="edit-meal" data-id="${meal.id}">Editar comida</button><button type="button" class="button button-outline" data-action="confirm-delete-meal" data-id="${meal.id}">${icon('trash')} Eliminar comida</button></div>` : ''}`);
 }
 
 const actionHandlers = {
@@ -756,7 +835,10 @@ const actionHandlers = {
   'new-profile': openCreateProfile,
   'switch-profile': button => activateProfile(button.dataset.id),
   personal: openPersonal,
-  recipe: button => showDietRecipe(button.dataset.id, button.hasAttribute('data-plan-recipe')),
+  recipe: button => showDietRecipe(button.dataset.id, button.dataset.planSlot),
+  'swap-plan-meal': button => openMealSwap(Number(button.dataset.slot)),
+  'replace-plan-meal': button => swapPlanMeal(Number(button.dataset.slot), button.dataset.id),
+  'restore-plan-meal': button => swapPlanMeal(Number(button.dataset.slot)),
   'diet-catalog-page': button => stepDietCatalog(Number(button.dataset.step)),
   'show-diet-section': button => showDietSection(button.getAttribute('aria-controls')),
   'download-profile': downloadDietProfile,
@@ -779,13 +861,15 @@ const actionHandlers = {
     tell(`Aplicaste el diseño ${designs[state.theme][0]}.`);
   },
   'start-fast': () => {
-    if (!state.allowFasting || !state.duration || state.fast || fastingSafety(state.profile)) return;
+    if (!canStartFast() || state.fast) return;
     const started = Date.now();
     state.fast = {started, ends: started + state.duration * hour};
     saveState();
     renderPage();
     tell('Temporizador iniciado.');
   },
+  'log-fast-start': () => openFastStart(false),
+  'edit-fast-start': () => openFastStart(true),
   'stop-fast': () => {
     if (!state.fast) return;
     const now = Date.now();
@@ -811,6 +895,10 @@ const actionHandlers = {
     document.querySelector(`#ingredients select option[value="${button.dataset.id}"]:checked`)?.closest('.ingredient')?.querySelector('[data-field="grams"]')?.focus();
   },
   'meal-details': button => showMeal(button.dataset.id),
+  'edit-meal': button => {
+    const meal = state.meals.find(item => item.id === button.dataset.id);
+    if (meal && !state.demo) newComposer('manual', meal);
+  },
   'confirm-delete-meal': button => openDialog('delete', '¿Eliminar esta comida?', 'Se quitará del diario y del resumen de ese día.', `<div class="stack-actions"><button type="button" class="button button-danger" data-action="delete-meal" data-id="${button.dataset.id}">Eliminar comida</button><button type="button" class="button button-outline" data-action="meal-details" data-id="${button.dataset.id}">Cancelar</button></div>`),
   'delete-meal': button => {
     state.meals = state.meals.filter(item => item.id !== button.dataset.id);
@@ -829,6 +917,7 @@ document.addEventListener('click', event => {
 document.addEventListener('input', event => {
   const element = event.target;
   if (element.name === 'query' && element.closest('#diet-catalog-filters')) updateDietCatalogFilter(element);
+  if (element.id === 'meal-swap-query') renderMealSwapChoices(Number(element.dataset.slot), element.value);
   if (element.closest('#fast-form') && ['start', 'duration'].includes(element.name)) updateSchedulePreview();
   if (!composer || !element.dataset.field) return;
   const container = element.closest('.ingredient');
@@ -863,6 +952,7 @@ document.addEventListener('change', event => {
 });
 
 const formHandlers = {
+  'fast-start-form': elements => saveFastStart(elements.date.form),
   'fast-form': ({duration, start, ready}) => {
     const hours = Number(duration.value);
     if (hours && (!ready.checked || fastingSafety(state.profile))) return;
@@ -886,11 +976,16 @@ const formHandlers = {
     if (!ingredients.length || !name.reportValidity()) return;
     leaveDemo();
     const mealIcon = {Desayuno: 'coffee', Colación: 'apple'}[period.value] ?? 'bowl';
-    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    state.meals.push({id, name: name.value.trim(), period: period.value, date: date.value, time: localTime(), ...total, ingredients, icon: mealIcon});
+    const existing = state.meals.findIndex(meal => meal.id === composer.mealId);
+    if (composer.mealId && existing < 0) return;
+    const previous = state.meals[existing];
+    const id = previous?.id ?? (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const meal = {id, name: name.value.trim(), period: period.value, date: date.value, time: previous?.time ?? localTime(), ...total, ingredients, icon: mealIcon};
+    if (previous) state.meals[existing] = meal;
+    else state.meals.push(meal);
     journalDay = date.value;
     dialog.close();
-    tell('Comida guardada en tu diario.');
+    tell(previous ? 'Comida actualizada.' : 'Comida guardada en tu diario.');
   },
 };
 
@@ -905,6 +1000,7 @@ document.addEventListener('submit', event => {
 
 dialog.addEventListener('input', ({target}) => {
   if (target.name === 'name') target.setCustomValidity('');
+  if (target.form?.id === 'fast-start-form') target.form.elements.time.setCustomValidity('');
 });
 
 dialog.addEventListener('close', () => {

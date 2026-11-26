@@ -1,1 +1,1 @@
-const strictoVersion = '1.1.0';
+const strictoVersion = '1.2.0';

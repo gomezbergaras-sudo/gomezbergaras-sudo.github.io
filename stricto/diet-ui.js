@@ -21,7 +21,7 @@ function resetDietCatalog() {
 }
 
 function currentDietPlan() {
-  return buildDietPlan(state.profile, state.goal, state.foodPreference, state.strengthDays, state.targets.kcal);
+  return buildDietPlan(state.profile, state.goal, state.foodPreference, state.strengthDays, state.targets.kcal, state.mealSwaps);
 }
 
 function selectOptions(entries, current) {
@@ -30,6 +30,7 @@ function selectOptions(entries, current) {
 
 function renderGoalPage() {
   const profile = state.profile;
+  const {calories} = currentDietPlan();
   document.querySelector('#goal-content').innerHTML = `<div class="sub-grid profile-layout">
     <article class="card sub-card profile-form-card">
       <header class="card-heading"><div class="heading-title">${icon('target', 'card-icon')}<h2>Datos de ${escapeHtml(profileDisplayName(activeProfileId, state))}</h2></div></header>
@@ -48,7 +49,7 @@ function renderGoalPage() {
           <label class="field">Sexo de referencia para el cálculo<select name="energySex">${selectOptions(Object.entries(energySexOptions), profile.energySex)}</select></label>
           <label class="field">Actividad física habitual<select name="activity">${selectOptions([['', 'Elige un nivel'], ...Object.entries(energyActivityOptions).map(([id, option]) => [id, option.label])], profile.activity)}</select></label>
         </div>
-        <p class="helper">Estos datos son opcionales. Con ellos estimamos tu meta de calorías. También puedes guardar una meta propia.</p>
+        <p class="helper">Stricto combina estos datos con tu edad, estatura, peso y objetivo para estimar tu meta diaria.</p>
         <label class="field">Preferencia de ayuno<select name="fastingPreference">${selectOptions(Object.entries(fastingPreferences), profile.fastingPreference)}</select></label>
         <div class="profile-precautions">
           <label class="field">Precauciones para el ayuno<select name="health" aria-describedby="profile-precautions">${selectOptions(Object.entries(healthOptions), profile.health)}</select></label>
@@ -58,6 +59,9 @@ function renderGoalPage() {
       </form>
     </article>
     <div class="sub-stack">
+      <article class="card sub-card"><h2>Meta diaria de calorías</h2>
+        ${calories.target ? `<div class="calorie-total"><strong>${number(calories.target)}</strong><span>kcal/día</span></div><p class="helper">${calories.source === 'manual' ? 'Meta propia guardada en este perfil.' : 'Estimación según tus datos y tu objetivo. Se actualiza al guardar el perfil.'}</p>` : `<p class="helper">${calories.message}</p>`}
+      </article>
       <article class="card sub-card"><header class="card-heading"><div class="heading-title">${icon('chart', 'card-icon')}<h2>Registro de medidas</h2></div></header>
         ${measurementHistoryMarkup()}
         <p class="helper profile-privacy">Tus datos se guardan en este navegador. El informe incluye las medidas registradas, tus objetivos y el plan actual.</p>
@@ -107,13 +111,57 @@ function saveDietProfile(elements) {
 }
 
 function dietRecipeCard(meal, label, {inPlan = false, goal = 'general'} = {}) {
-  const action = `data-action="recipe" data-id="${meal.id}"${inPlan ? ' data-plan-recipe' : ''}`;
+  const action = `data-action="recipe" data-id="${meal.id}"${inPlan ? ` data-plan-slot="${meal.slot}"` : ''}`;
   return `<article class="card diet-recipe">
     <button class="diet-photo-button" type="button" ${action} aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo')}</button>
     <div class="diet-recipe-copy"><span class="diet-period">${label}</span><h3>${meal.name}</h3>
     <small class="diet-kcal">≈ ${number(meal.kcal ?? recipeEnergy(meal, goal))} kcal</small>
-    <button class="text-button diet-recipe-link" type="button" ${action}>Ver receta ${icon('arrow')}</button></div>
+    <div class="diet-recipe-actions"><button class="text-button diet-recipe-link" type="button" ${action}>Ver receta ${icon('arrow')}</button>
+    ${inPlan ? `<button class="text-button diet-recipe-link" type="button" data-action="swap-plan-meal" data-slot="${meal.slot}" aria-label="Cambiar plato. ${escapeHtml(meal.name)}">Cambiar plato</button>` : ''}</div></div>
   </article>`;
+}
+
+const mealSwapFamilies = [
+  ['arepas', 'avenas', 'huevos', 'tostadas', 'batidos', 'sandwiches'],
+  ['bowls', 'guisos', 'pastas', 'parrilla', 'wraps', 'ensaladas', 'tacos'],
+  ['ensaladas', 'bowls', 'sopas', 'horno', 'parrilla', 'tacos'],
+  ['postres', 'batidos', 'avenas', 'tostadas', 'sandwiches', 'arepas'],
+];
+
+function openMealSwap(slot) {
+  const meal = currentDietPlan().meals.find(item => item.slot === slot);
+  if (!meal) return;
+  openDialog('meal-swap', 'Cambiar plato', `${meal.period} · ${escapeHtml(meal.name)}`, `
+    <label class="field">Buscar un plato<input id="meal-swap-query" data-slot="${slot}" type="search" placeholder="Ej. arepa o pollo"></label>
+    <div id="meal-swap-results" class="meal-swap-results"></div>
+    ${meal.id === meal.originalId ? '' : `<button class="text-button" type="button" data-action="restore-plan-meal" data-slot="${slot}">Restaurar plato sugerido</button>`}`);
+  renderMealSwapChoices(slot);
+}
+
+function renderMealSwapChoices(slot, query = '') {
+  const plan = currentDietPlan();
+  const taken = new Set(plan.meals.map(meal => meal.id));
+  const matches = searchDietCatalog({query: query.trim(), family: 'all', preference: state.foodPreference}).filter(recipe => !taken.has(recipe.id));
+  const choices = query.trim() ? matches.slice(0, 8) : mealSwapFamilies[slot].map(family => matches.find(recipe => recipe.family === family)).filter(Boolean);
+  document.querySelector('#meal-swap-results').innerHTML = choices.length ? choices.map(recipe => `
+    <button class="button button-outline meal-swap-choice" type="button" data-action="replace-plan-meal" data-slot="${slot}" data-id="${recipe.id}">${escapeHtml(recipe.name)} ${icon('chevron')}</button>`).join('')
+    : '<p class="empty">No hay platos que coincidan. Prueba con otro ingrediente.</p>';
+  drawIcons(document.querySelector('#meal-swap-results'));
+}
+
+function swapPlanMeal(slot, recipeId) {
+  const plan = currentDietPlan();
+  if (!plan.meals.some(meal => meal.slot === slot)) return;
+  if (recipeId) {
+    const recipe = dietCatalogById.get(recipeId);
+    if (!recipe || !dietRecipeMatchesPreference(recipe, state.foodPreference) || plan.meals.some(meal => meal.id === recipeId)) return;
+    state.mealSwaps[slot] = recipeId;
+  } else delete state.mealSwaps[slot];
+  saveState();
+  dialog.close();
+  renderPage();
+  document.querySelector(`[data-action="swap-plan-meal"][data-slot="${slot}"]`)?.focus();
+  tell('Menú actualizado.');
 }
 
 function dietMenuMarkup(plan) {
@@ -236,9 +284,10 @@ function recipePortionsMarkup(recipe, goal, scale = 1) {
     `<li><span>${ingredient.name}</span><strong>${number(ingredient.grams)} g</strong></li>`).join('');
 }
 
-function showDietRecipe(id, inPlan) {
+function showDietRecipe(id, slot) {
   const plan = currentDietPlan();
-  const recipe = inPlan ? plan.meals.find(meal => meal.id === id) : recipeFor(id, state.foodPreference);
+  const inPlan = slot != null;
+  const recipe = inPlan ? plan.meals.find(meal => meal.slot === Number(slot)) : recipeFor(id, state.foodPreference);
   if (!recipe) return;
   const goal = inPlan ? recipe.portionGoal : plan.tailored ? state.goal : 'general';
   const scale = recipe.scale ?? 1;

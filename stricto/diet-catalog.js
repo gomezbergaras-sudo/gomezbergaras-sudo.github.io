@@ -245,13 +245,17 @@ const dietCatalog = [
 ];
 const dietCatalogById = new Map(dietCatalog.map(recipe => [recipe.id, recipe]));
 
+function dietRecipeMatchesPreference(recipe, preference) {
+  return (preference !== 'meat' || recipe.meat)
+    && (preference !== 'vegan' || !recipe.animalProducts)
+    && (preference !== 'vegetarian' || !recipe.meat);
+}
+
 function searchDietCatalog({query, family, preference}) {
   const terms = dietSearchWords(query).filter(word => !['de', 'con', 'y', 'el', 'la'].includes(word));
   return dietCatalog.filter(recipe =>
     (family === 'all' || recipe.family === family)
-    && (preference !== 'meat' || recipe.meat)
-    && (preference !== 'vegan' || !recipe.animalProducts)
-    && (preference !== 'vegetarian' || !recipe.meat)
+    && dietRecipeMatchesPreference(recipe, preference)
     && terms.every(term => recipe.searchWords.has(term) || (term.length >= 4 && [...recipe.searchWords].some(word =>
       word.startsWith(term) || (term.endsWith('s') && word === term.slice(0, -1))))));
 }

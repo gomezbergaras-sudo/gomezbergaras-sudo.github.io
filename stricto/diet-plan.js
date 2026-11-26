@@ -93,32 +93,35 @@ function fastingSafety(profile) {
 function estimatedDailyKcal(profile, goal) {
   const offset = {female: -161, male: 5}[profile.energySex];
   const activity = energyActivityOptions[profile.activity]?.factor;
-  if (!Number.isFinite(offset) || !activity || profile.age < 19 || profile.age > 78) return 0;
-  const rest = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + offset;
+  const [age, weight, height] = [profile.age, profile.weight, profile.height].map(Number);
+  if (!Number.isFinite(offset) || !activity || ![age, weight, height].every(value => Number.isFinite(value) && value > 0) || age < 19 || age > 78) return 0;
+  const rest = 10 * weight + 6.25 * height - 5 * age + offset;
   const maintenance = rest * activity;
   const adjustments = {gain: Math.min(300, maintenance * .15), lose: -Math.min(400, maintenance * .1), recomp: 0};
   const estimate = Math.round((maintenance + adjustments[goal]) / 25) * 25;
   return estimate >= 1400 && estimate <= 4500 ? estimate : 0;
 }
 
-function shapeDietMenu(recipes, schedule, goal, target) {
+function shapeDietMenu(recipes, baseline, schedule, goal, target) {
   const servingSlots = Object.hasOwn(dietMealSchedules, schedule)
     ? dietMealSchedules[schedule].slots : dietMealSchedules.regular.slots;
   const baseEnergy = recipes.map(recipe => recipeEnergy(recipe, goal, 1));
-  const total = baseEnergy.reduce((sum, kcal) => sum + kcal, 0);
+  const baselineEnergy = baseline.map(recipe => recipeEnergy(recipe, goal, 1));
+  const total = baselineEnergy.reduce((sum, kcal) => sum + kcal, 0);
   return servingSlots.map(([period, indices]) => {
     const base = indices.reduce((sum, index) => sum + baseEnergy[index], 0);
-    const budget = servingSlots.length === 2 ? (target || total) / 2 : target * (base / total);
+    const original = indices.reduce((sum, index) => sum + baselineEnergy[index], 0);
+    const budget = servingSlots.length === 2 ? (target || total) / 2 : target * (original / total);
     const scale = budget ? Math.max(.65, Math.min(1.8, budget / base)) : 1;
     const dishes = indices.map(index => {
       const recipe = recipes[index];
-      return {...recipe, period, scale, portionGoal: goal, kcal: recipeEnergy(recipe, goal, scale)};
+      return {...recipe, slot: index, originalId: baseline[index].id, period, scale, portionGoal: goal, kcal: recipeEnergy(recipe, goal, scale)};
     });
     return {period, dishes, kcal: dishes.reduce((sum, dish) => sum + dish.kcal, 0)};
   });
 }
 
-function buildDietPlan(profile, goal, preference, strengthDays, manualKcal = '') {
+function buildDietPlan(profile, goal, preference, strengthDays, manualKcal = '', mealSwaps = {}) {
   const ready = Boolean(profile.age && profile.weight && profile.height);
   const safety = fastingSafety(profile);
   const bmi = adultBodyIndex(profile.weight, profile.height);
@@ -133,11 +136,22 @@ function buildDietPlan(profile, goal, preference, strengthDays, manualKcal = '')
   const automatic = tailored ? estimatedDailyKcal(profile, goal) : 0;
   const calorieTarget = Number.isFinite(manual) && manual >= 1 && manual <= 15000 ? manual : automatic;
   const calorieSource = calorieTarget ? (calorieTarget === manual ? 'manual' : 'estimate') : '';
+  const calorieMessage = safety || goalCaution || (!ready || !profile.activity || !profile.energySex
+    ? 'Registra edad, peso, estatura, actividad física y sexo de referencia en Mi perfil para calcular tu meta.'
+    : profile.health !== 'clear'
+      ? 'Revisa las precauciones en Mi perfil para habilitar la estimación.'
+      : 'Puedes guardar una meta propia en Mi perfil si ya cuentas con una referencia apropiada.');
   const schedule = safety ? 'regular' : (profile.mealSchedule || 'regular');
-  const servings = shapeDietMenu(menu.map(id => ({id, ...recipeFor(id, preference)})), schedule,
+  const baseline = menu.map(id => ({id, ...recipeFor(id, preference)}));
+  const recipes = baseline.map((recipe, index) => {
+    const alternative = dietCatalogById.get(mealSwaps[index]);
+    return alternative && dietRecipeMatchesPreference(alternative, preference) ? alternative : recipe;
+  });
+  const servings = shapeDietMenu(recipes, baseline, schedule,
     tailored ? goal : 'general', tailored ? calorieTarget : 0);
   const meals = servings.flatMap(serving => serving.dishes);
-  const calories = {target: calorieTarget, source: calorieSource, menu: servings.reduce((sum, serving) => sum + serving.kcal, 0)};
+  const calories = {target: calorieTarget, source: calorieSource, message: calorieTarget ? '' : calorieMessage,
+    menu: servings.reduce((sum, serving) => sum + serving.kcal, 0)};
   const scheduleNote = calorieTarget && calorieTarget - calories.menu >= 150
     ? (servings.length === 2
       ? 'Las porciones de ejemplo quedan por debajo de tu meta. Si te cuesta cubrirla en dos comidas, puedes distribuir la comida en más tomas.'
