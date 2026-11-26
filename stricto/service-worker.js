@@ -1,13 +1,13 @@
 const scope = self.registration.scope;
 const cachePrefix = `${scope}stricto-app-`;
-const cacheName = `${cachePrefix}7`;
+const cacheName = `${cachePrefix}8`;
 const appFiles = new Set([
   'index.html', 'styles.css', 'catalog.js', 'vision.js', 'app.js', 'stricto.webmanifest',
   'assets/bowl-stricto.jpg', 'assets/stricto-marca.png', 'assets/stricto-logo.png', 'assets/stricto-logo-inverso.png',
   'assets/stricto-app-192.png', 'assets/stricto-app-512.png',
   'assets/stricto-escaner-editorial.jpg',
   'diet-catalog.js', 'diet-photos.js', 'diet-plan.js', 'diet-ui.js', 'diet-report.js',
-  'vendor/jspdf-4.2.1.min.js',
+  'vendor/jspdf-4.2.1.min.js', 'vendor/supabase-js-2.119.2.js', 'auth.js',
   'assets/comidas-proteinas.jpg', 'assets/comidas-bases.jpg', 'assets/comidas-frescos.jpg',
   'assets/comidas-extras.jpg', 'assets/comidas-menu1.jpg', 'assets/comidas-menu2.jpg',
   'assets/comidas-tortilla.jpg', 'assets/comidas-berenjena.jpg',

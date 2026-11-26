@@ -36,9 +36,10 @@ const designs = {
 const navViews = ['hoy', 'ayuno', 'diario', 'objetivo', 'dietas'];
 const periods = ['Desayuno', 'Almuerzo', 'Cena', 'Colación'];
 const macroGroups = [['protein', 'Proteínas', 'protein'], ['carbs', 'Carbohidratos', 'carbs'], ['fat', 'Grasas', 'fat']];
-const storageKey = 'stricto-v1';
-const profileKeyPrefix = `${storageKey}:perfil:`;
-const activeProfileKey = `${storageKey}:perfil-activo`;
+const localProfileStorageKey = 'stricto-v1';
+let storageKey = localProfileStorageKey;
+let workspaceAccount = null;
+let workspaceOpen = false;
 const principalProfileId = 'principal';
 const memoryProfiles = new Map();
 const hour = 3600000;
@@ -51,15 +52,16 @@ const initialState = {
 };
 
 function profileStorageKey(id) {
-  return id === principalProfileId ? storageKey : `${profileKeyPrefix}${id}`;
+  return id === principalProfileId ? storageKey : `${storageKey}:perfil:${id}`;
 }
 
 function profileIds() {
   const ids = new Set([principalProfileId, ...memoryProfiles.keys()]);
+  const prefix = `${storageKey}:perfil:`;
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key?.startsWith(profileKeyPrefix)) ids.add(key.slice(profileKeyPrefix.length));
+      if (key?.startsWith(prefix)) ids.add(key.slice(prefix.length));
     }
   } catch {
     storageAvailable = false;
@@ -69,7 +71,7 @@ function profileIds() {
 
 function lastProfileId() {
   try {
-    const id = localStorage.getItem(activeProfileKey);
+    const id = localStorage.getItem(`${storageKey}:perfil-activo`);
     return profileIds().includes(id) ? id : principalProfileId;
   } catch {
     storageAvailable = false;
@@ -100,8 +102,8 @@ function readState(id) {
 }
 
 let storageAvailable = true;
-let activeProfileId = lastProfileId();
-let state = readState(activeProfileId);
+let activeProfileId = principalProfileId;
+let state = null;
 let view = 'hoy';
 let journalDay = localDate();
 let composer = null;
@@ -135,7 +137,7 @@ function activateProfile(id, profileState = readState(id)) {
   journalDay = localDate();
   resetDietCatalog();
   try {
-    localStorage.setItem(activeProfileKey, id);
+    localStorage.setItem(`${storageKey}:perfil-activo`, id);
   } catch {
     storageAvailable = false;
   }
@@ -148,12 +150,59 @@ function activateProfile(id, profileState = readState(id)) {
 
 function openProfilePicker() {
   openDialog('profiles', 'Perfiles', 'Cada perfil tiene sus metas, medidas, diario y horario en este navegador.', `
+    ${workspaceAccount ? `<p class="helper account-current">${escapeHtml(workspaceAccount.email)}</p>` : ''}
     <div class="profile-picker">${profileIds().map(id => {
       const profileState = id === activeProfileId ? state : readState(id);
       const current = id === activeProfileId;
       return `<button class="button button-outline profile-choice" type="button" data-action="switch-profile" data-id="${escapeHtml(id)}" aria-pressed="${current}"><span><strong>${escapeHtml(profileDisplayName(id, profileState))}</strong><small>${goalOptions[profileState.goal].name}</small></span>${current ? '<em>Activo</em>' : icon('chevron')}</button>`;
     }).join('')}</div>
-    <button class="button button-primary" type="button" data-action="new-profile">${icon('plus')} Crear perfil</button>`);
+    <div class="stack-actions">
+      <button class="button button-primary" type="button" data-action="new-profile">${icon('plus')} Crear perfil</button>
+      <button class="button button-outline" type="button" data-auth-action="${workspaceAccount ? 'signout' : 'signin'}">${workspaceAccount ? 'Cerrar sesión' : 'Iniciar sesión'}</button>
+    </div>`);
+}
+
+function openStrictoWorkspace(account = null) {
+  if (dialog.open) dialog.close();
+  memoryProfiles.clear();
+  storageAvailable = true;
+  workspaceAccount = account;
+  storageKey = account ? `${localProfileStorageKey}:cuenta:${account.id}` : localProfileStorageKey;
+  activeProfileId = lastProfileId();
+  state = readState(activeProfileId);
+  if (account) state.demo = false;
+  journalDay = localDate();
+  resetDietCatalog();
+  workspaceOpen = true;
+  document.querySelector('#stricto-auth').hidden = true;
+  document.querySelector('#stricto-sidebar').hidden = false;
+  document.querySelector('#main').hidden = false;
+  applyTheme();
+  showRoute();
+  updateClock();
+}
+
+function closeStrictoWorkspace() {
+  workspaceOpen = false;
+  workspaceAccount = null;
+  state = null;
+  memoryProfiles.clear();
+  if (dialog.open) dialog.close();
+  dialogContent.replaceChildren();
+  document.querySelector('#stricto-sidebar').hidden = true;
+  document.querySelector('#main').hidden = true;
+  for (const element of document.querySelectorAll('#home-energy, #home-nutrition, #home-meals, #home-suggestion, #fast-content, #diary-content, #goal-content, #diet-content')) {
+    element.replaceChildren();
+  }
+  document.querySelector('#avatar').textContent = 'S';
+  document.querySelector('#avatar').removeAttribute('title');
+  document.querySelector('#avatar').setAttribute('aria-label', 'Cambiar perfil');
+  document.querySelector('#toast').classList.remove('visible');
+  document.querySelector('#toast').textContent = '';
+  document.documentElement.dataset.theme = 'pulso';
+  document.querySelector('meta[name="theme-color"]').content = designs.pulso[2];
+  document.querySelector('#stricto-auth').hidden = false;
+  window.scrollTo(0, 0);
 }
 
 function openCreateProfile() {
@@ -845,11 +894,12 @@ dialog.addEventListener('close', () => {
   composer = null;
 });
 
-window.addEventListener('hashchange', showRoute);
-applyTheme();
-showRoute();
-updateClock();
-setInterval(updateClock, 1000);
+window.addEventListener('hashchange', () => {
+  if (workspaceOpen) showRoute();
+});
+setInterval(() => {
+  if (workspaceOpen) updateClock();
+}, 1000);
 
 if (navigator.serviceWorker && window.isSecureContext && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./service-worker.js').catch(error => {

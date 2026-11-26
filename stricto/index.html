@@ -19,9 +19,34 @@
   <script src="vendor/jspdf-4.2.1.min.js" defer></script>
   <script src="diet-report.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="vendor/supabase-js-2.119.2.js" defer></script>
+  <script src="auth.js" defer></script>
 </head>
 <body>
-  <aside class="sidebar">
+  <main class="auth-page" id="stricto-auth" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <div class="auth-cover" aria-hidden="true"><img src="assets/bowl-stricto.jpg" alt="" width="840" height="560"></div>
+      <div class="auth-content">
+        <img class="auth-logo" src="assets/stricto-logo.png" alt="Stricto" width="1099" height="288">
+        <div><h1 id="auth-title">Iniciar sesión</h1><p id="auth-description">Ingresa con tu correo y contraseña.</p></div>
+        <form class="auth-form" id="auth-form" method="post">
+          <label class="field">Correo electrónico<input type="email" id="auth-email" name="email" autocomplete="username" inputmode="email" maxlength="254" required></label>
+          <div class="field"><label for="auth-password">Contraseña</label>
+            <div class="auth-password"><input type="password" id="auth-password" name="password" autocomplete="current-password" required><button type="button" class="text-button" id="auth-password-toggle" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button></div>
+          </div>
+          <p class="helper" id="auth-password-hint" hidden>Usa al menos 8 caracteres.</p>
+          <p class="auth-feedback" id="auth-feedback" role="status" aria-live="polite" hidden></p>
+          <button type="submit" class="button button-primary auth-submit" id="auth-submit" disabled>Entrar</button>
+        </form>
+        <button type="button" class="text-button" id="auth-resend" hidden>Reenviar confirmación</button>
+        <div class="auth-links">
+          <button type="button" class="text-button" id="auth-mode-toggle">Crear cuenta</button>
+          <button type="button" class="text-button" data-auth-action="guest">Continuar como invitado</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <aside class="sidebar" id="stricto-sidebar" hidden>
     <a class="brand" href="#hoy" aria-label="Stricto, inicio">
       <img class="brand-inverse" src="assets/stricto-logo-inverso.png" alt="" width="1099" height="288">
       <img class="brand-compact" src="assets/stricto-marca.png" alt="" width="256" height="256">
@@ -44,7 +69,7 @@
     </div>
   </aside>
 
-  <main class="workspace" id="main">
+  <main class="workspace" id="main" hidden>
     <header class="topbar">
       <a class="brand mobile-brand" href="#hoy" aria-label="Stricto, inicio">
         <img class="brand-standard" src="assets/stricto-logo.png" alt="" width="1099" height="288">
