@@ -1,8 +1,10 @@
+importScripts('version.js');
+
 const scope = self.registration.scope;
 const cachePrefix = `${scope}stricto-app-`;
-const cacheName = `${cachePrefix}9`;
+const cacheName = `${cachePrefix}${strictoVersion}`;
 const appFiles = new Set([
-  'index.html', 'styles.css', 'catalog.js', 'vision-profile.js', 'vision.js', 'app.js', 'stricto.webmanifest',
+  'index.html', 'styles.css', 'version.js', 'catalog.js', 'vision-profile.js', 'vision.js', 'app.js', 'stricto.webmanifest',
   'assets/bowl-stricto.jpg', 'assets/stricto-marca.png', 'assets/stricto-logo.png', 'assets/stricto-logo-inverso.png',
   'assets/stricto-app-192.png', 'assets/stricto-app-512.png',
   'assets/stricto-escaner-editorial.jpg',

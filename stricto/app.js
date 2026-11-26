@@ -531,7 +531,7 @@ function openPersonal() {
 }
 
 function openSources() {
-  openDialog('sources', 'Guía y fuentes', '', `<p class="guide">En 12:12 hay 12 horas de ayuno y 12 para tus comidas. Stricto propone un horario opcional según tu perfil. Las medidas sirven para hacer seguimiento y revisar metas.</p>
+  openDialog('sources', 'Guía y fuentes', `Stricto v${strictoVersion}`, `<p class="guide">En 12:12 hay 12 horas de ayuno y 12 para tus comidas. Stricto propone un horario opcional según tu perfil. Las medidas sirven para hacer seguimiento y revisar metas.</p>
     <ul class="source-list">
       <li>Precauciones antes de iniciar ayuno. <a href="https://www.hopkinsmedicine.org/health/expert-qa/intermittent-fasting-what-is-it-and-how-does-it-work" target="_blank" rel="noreferrer">Johns Hopkins Medicine</a></li>
       <li>Interpretación orientativa del peso respecto a la estatura. <a href="https://www.nhs.uk/health-assessment-tools/calculate-your-body-mass-index/calculate-bmi-for-adults" target="_blank" rel="noreferrer">NHS</a></li>
@@ -556,7 +556,13 @@ function newComposer(mode) {
     <button type="button" class="text-button" data-action="sample">Ver ejemplo con ingredientes precargados</button>
     <p class="helper">La foto se analiza en tu navegador. La primera vez se descargan unos 85 MB para reconocer alimentos.</p>
   </div><img id="scan-preview" alt="Foto del plato seleccionado" hidden>
-  <button type="button" id="analyze-photo" class="button button-outline" data-action="analyze" hidden>Reconocer alimentos</button>
+  <div class="scan-controls" id="scan-controls" hidden>
+    <label class="field" for="scan-area">Zona de la foto<select id="scan-area">
+      <option value="full">Foto completa</option><option value="left">Lado izquierdo</option><option value="right">Lado derecho</option>
+      <option value="top">Parte superior</option><option value="bottom">Parte inferior</option>
+    </select></label>
+    <button type="button" id="analyze-photo" class="button button-outline" data-action="analyze">Reconocer alimentos</button>
+  </div>
   <p id="scan-status" class="helper" role="status" hidden></p><div id="scan-matches" class="stack-actions" hidden></div>` : '';
   const defaultPeriod = new Date().getHours() < 11 ? 'Desayuno' : new Date().getHours() < 16 ? 'Almuerzo' : 'Cena';
   openDialog(mode, mode === 'scan' ? 'Escáner de alimentos' : 'Registrar comida', mode === 'scan' ? 'Revisa las sugerencias y escribe los gramos de cada alimento que quieras registrar.' : 'Selecciona alimentos y escribe el peso de cada porción.', `${scanMarkup}
@@ -592,7 +598,10 @@ function setPhoto(url, file) {
   preview.src = url;
   preview.hidden = false;
   const recognize = document.querySelector('#analyze-photo');
-  recognize.hidden = !file;
+  document.querySelector('#scan-controls').hidden = !file;
+  const area = document.querySelector('#scan-area');
+  area.value = 'full';
+  area.disabled = false;
   recognize.disabled = false;
 }
 
@@ -640,9 +649,9 @@ function loadPhoto(file) {
   renderScanStatus('Foto lista. Puedes reconocer alimentos o agregarlos manualmente.');
 }
 
-function scanWithWorker(file, candidates, report) {
+function scanWithWorker(file, candidates, report, area) {
   if (location.protocol === 'file:' || typeof Worker === 'undefined' || typeof OffscreenCanvas !== 'function'
-    || typeof createImageBitmap !== 'function') return analyzeFoodPhoto(file, candidates, report);
+    || typeof createImageBitmap !== 'function') return analyzeFoodPhoto(file, candidates, report, area);
   visionWorker ??= new Worker('vision.js');
   const worker = visionWorker;
   const id = ++scanRequestId;
@@ -658,8 +667,11 @@ function scanWithWorker(file, candidates, report) {
         return;
       }
       cleanup();
-      if (data.error) reject(new Error(data.error));
-      else resolve(data.result);
+      if (data.error) {
+        const error = new Error(data.error.message ?? data.error);
+        error.name = data.error.name ?? 'Error';
+        reject(error);
+      } else resolve(data.result);
     }
     function fail(error) {
       cleanup();
@@ -669,7 +681,7 @@ function scanWithWorker(file, candidates, report) {
     }
     worker.addEventListener('message', receive);
     worker.addEventListener('error', fail);
-    worker.postMessage({id, blob: file, candidates});
+    worker.postMessage({id, blob: file, candidates, area});
   });
 }
 
@@ -680,22 +692,27 @@ async function recognizePhoto() {
   current.analyzing = true;
   const stillOpen = () => dialog.open && composer === current && current.photo === file;
   const button = document.querySelector('#analyze-photo');
+  const area = document.querySelector('#scan-area');
   button.disabled = true;
+  area.disabled = true;
   const candidates = foods.filter(food => food.visual).map(food => food.id);
   try {
     const matches = await scanWithWorker(file, candidates, progress => {
       if (stillOpen()) renderScanStatus(progress);
-    });
+    }, area.value);
     if (stillOpen()) {
-      renderScanStatus(matches.length ? 'Posibles alimentos. Selecciona los que estén realmente en tu plato y añade los gramos.' : 'El modelo no encontró candidatos claros. Puedes agregar los alimentos manualmente.', matches);
+      renderScanStatus(matches.length ? 'Posibles alimentos. Confírmalos y añade sus gramos.' : 'No encontré alimentos claros en esta zona. Prueba otra zona o agrégalos manualmente.', matches);
     }
   } catch (error) {
     console.warn('Reconocimiento de alimentos:', error);
-    if (stillOpen()) renderScanStatus('El análisis no se pudo ejecutar. Comprueba la conexión y vuelve a intentar, o agrega los alimentos manualmente.');
+    if (stillOpen()) {
+      renderScanStatus(error.name === 'UnreadableFoodPhoto' ? 'No se pudo abrir la imagen. Prueba con otra foto en JPG, PNG o WebP.' : 'El análisis no se pudo ejecutar. Comprueba la conexión y vuelve a intentar, o agrega los alimentos manualmente.');
+    }
   } finally {
     if (stillOpen()) {
       current.analyzing = false;
       button.disabled = false;
+      area.disabled = false;
     }
   }
 }
@@ -842,6 +859,7 @@ document.addEventListener('change', event => {
     loadPhoto(input.files[0]);
     input.value = '';
   }
+  if (input.id === 'scan-area') renderScanStatus('Zona seleccionada. Toca Reconocer alimentos para analizarla.');
 });
 
 const formHandlers = {
@@ -901,6 +919,10 @@ window.addEventListener('hashchange', () => {
 setInterval(() => {
   if (workspaceOpen) updateClock();
 }, 1000);
+
+for (const version of document.querySelectorAll('[data-app-version]')) {
+  version.textContent = `Stricto v${strictoVersion}`;
+}
 
 if (navigator.serviceWorker && window.isSecureContext && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./service-worker.js').catch(error => {

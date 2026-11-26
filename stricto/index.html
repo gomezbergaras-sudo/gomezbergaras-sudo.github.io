@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="assets/stricto-app-192.png">
   <link rel="manifest" href="stricto.webmanifest">
   <link rel="stylesheet" href="styles.css">
+  <script src="version.js" defer></script>
   <script src="catalog.js" defer></script>
   <script src="diet-catalog.js" defer></script>
   <script src="diet-photos.js" defer></script>
@@ -44,6 +45,7 @@
           <button type="button" class="text-button" id="auth-mode-toggle">Crear cuenta</button>
           <button type="button" class="text-button" data-auth-action="guest">Continuar como invitado</button>
         </div>
+        <small class="app-version" data-app-version></small>
       </div>
     </div>
   </main>
@@ -146,7 +148,7 @@
         <div class="page-heading"><div><h1 id="diet-title">Dietas<span>.</span></h1><p>Ideas para tus comidas y tu ventana de ayuno.</p></div></div>
         <div id="diet-content"></div>
       </section>
-      <footer class="page-footer"><button type="button" data-action="sources">Guía y fuentes</button><span>Los valores de alimentos y porciones son aproximados.</span></footer>
+      <footer class="page-footer"><button type="button" data-action="sources">Guía y fuentes</button><span>Los valores de alimentos y porciones son aproximados.</span><small class="app-version" data-app-version></small></footer>
     </div>
   </main>
 

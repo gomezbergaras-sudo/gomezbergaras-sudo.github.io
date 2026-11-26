@@ -2,6 +2,13 @@ if (typeof importScripts === 'function') importScripts('vision-profile.js');
 
 const transformerBase = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/';
 const tileSize = 224;
+const scanAreas = {
+  full: [0, 0, 1, 1],
+  left: [0, 0, .56, 1],
+  right: [.44, 0, .56, 1],
+  top: [0, 0, 1, .56],
+  bottom: [0, .44, 1, .56],
+};
 let visionPipeline;
 
 function getFoodClassifier(report) {
@@ -153,23 +160,31 @@ function makeVisionCanvas(width, height, options) {
   return context;
 }
 
-function boundVisionPhoto(image) {
+function boundVisionPhoto(image, area) {
   const width = image.naturalWidth ?? image.width;
   const height = image.naturalHeight ?? image.height;
-  const scale = 1100 / Math.max(width, height);
-  if (scale >= 1) return image;
-  const context = makeVisionCanvas(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
-  context.drawImage(image, 0, 0, context.canvas.width, context.canvas.height);
+  const region = scanAreas[area] ?? scanAreas.full;
+  const box = getVisionCropBox(width, height, region);
+  const scale = Math.min(1, 1100 / Math.max(box.width, box.height));
+  if (scale === 1 && region === scanAreas.full) return image;
+  const context = makeVisionCanvas(Math.max(1, Math.round(box.width * scale)), Math.max(1, Math.round(box.height * scale)));
+  context.drawImage(image, box.left, box.top, box.width, box.height, 0, 0, context.canvas.width, context.canvas.height);
   return context.canvas;
 }
 
-function makeFoodCrop(image, context, RawImage, [x, y, w, h]) {
-  const width = image.naturalWidth ?? image.width;
-  const height = image.naturalHeight ?? image.height;
+function getVisionCropBox(width, height, [x, y, w, h]) {
   const left = Math.floor(x * width);
   const top = Math.floor(y * height);
-  const cropWidth = Math.max(1, Math.min(width - left, Math.round(w * width)));
-  const cropHeight = Math.max(1, Math.min(height - top, Math.round(h * height)));
+  return {
+    left, top,
+    width: Math.max(1, Math.min(width - left, Math.round(w * width))),
+    height: Math.max(1, Math.min(height - top, Math.round(h * height))),
+  };
+}
+
+function makeFoodCrop(image, context, RawImage, tile) {
+  const {left, top, width: cropWidth, height: cropHeight} = getVisionCropBox(
+    image.naturalWidth ?? image.width, image.naturalHeight ?? image.height, tile);
   const scale = tileSize / Math.max(cropWidth, cropHeight);
   const scaledWidth = Math.max(1, Math.round(cropWidth * scale));
   const scaledHeight = Math.max(1, Math.round(cropHeight * scale));
@@ -181,13 +196,18 @@ function makeFoodCrop(image, context, RawImage, [x, y, w, h]) {
   return new RawImage(pixels, tileSize, tileSize, 4);
 }
 
-async function extractFoodFeatures(blob, report) {
-  report('Preparando el modelo de visión…');
-  const {classifier, RawImage, tokens} = await getFoodClassifier(report);
-  const photo = await decodeFoodPhoto(blob);
+async function extractFoodFeatures(blob, report, area = 'full') {
+  report('Abriendo la foto…');
+  const photo = await decodeFoodPhoto(blob).catch(cause => {
+    const error = new Error('El navegador no pudo abrir el archivo de imagen.', {cause});
+    error.name = 'UnreadableFoodPhoto';
+    throw error;
+  });
   try {
-    const image = boundVisionPhoto(photo);
+    const image = boundVisionPhoto(photo, area);
     if (image !== photo) photo.close?.();
+    report('Preparando el modelo de visión…');
+    const {classifier, RawImage, tokens} = await getFoodClassifier(report);
     const context = makeVisionCanvas(tileSize, tileSize, {willReadFrequently: true});
     const features = [];
     const crops = strictoVisionProfile.patches;
@@ -205,17 +225,17 @@ async function extractFoodFeatures(blob, report) {
   }
 }
 
-async function analyzeFoodPhoto(blob, candidateIds, report) {
-  return selectFoodMatches(await extractFoodFeatures(blob, report), new Set(candidateIds));
+async function analyzeFoodPhoto(blob, candidateIds, report, area) {
+  return selectFoodMatches(await extractFoodFeatures(blob, report, area), new Set(candidateIds));
 }
 
 if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
-  self.onmessage = async ({data: {id, blob, candidates}}) => {
+  self.onmessage = async ({data: {id, blob, candidates, area}}) => {
     try {
-      const result = await analyzeFoodPhoto(blob, candidates, progress => self.postMessage({id, progress}));
+      const result = await analyzeFoodPhoto(blob, candidates, progress => self.postMessage({id, progress}), area);
       self.postMessage({id, result});
     } catch (error) {
-      self.postMessage({id, error: String(error)});
+      self.postMessage({id, error: {name: error?.name, message: String(error)}});
     }
   };
 }
