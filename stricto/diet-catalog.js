@@ -15,6 +15,18 @@ const dietPortions = {
   semilla: [15, 25, 10, 15],
 };
 
+// Approximate kcal per 100 g for the food as listed, based on generic USDA FoodData Central entries.
+const dietEnergyDensity = {
+  ...Object.fromEntries(foods.map(({id, kcal}) => [id, kcal])),
+  huevo: 143, 'huevo-cocido': 155, res: 204, pavo: 147, cerdo: 143, queso: 299,
+  yogur: 61, 'yogur-soya': 66, yuca: 125, pan: 252, pasta: 149, pimenton: 31,
+  repollo: 25, espinaca: 23, calabacin: 17, cebolla: 40, champinones: 22, rabanos: 16,
+  hojas: 20, fresas: 32, cambur: 89, papaya: 43, naranja: 47, pina: 50, pera: 57,
+  nueces: 654, chia: 486, semillas: 559, 'salsa-tomate': 29, 'salsa-pimenton': 31,
+  limon: 22, 'tortilla-maiz': 218, 'tortilla-trigo': 310, auyama: 20, papa: 87, caldo: 6,
+  'bebida-soya': 33, cacao: 228, mango: 60, berenjena: 25, maiz: 96, 'frijol-rojo': 127, camaron: 99,
+};
+
 const dietIngredients = Object.fromEntries([
   ['arepa', 'arepa de maíz cocida', [80, 105, 65, 85]],
   ['huevo', 'huevo sin cáscara', [100, 150, 100, 125], 'vegetarian'],
@@ -244,10 +256,16 @@ function searchDietCatalog({query, family, preference}) {
       word.startsWith(term) || (term.endsWith('s') && word === term.slice(0, -1))))));
 }
 
-function portionIngredients(recipe, goal) {
+function portionIngredients(recipe, goal, scale = 1) {
   const portionIndex = Object.keys(dietPortionGoals).indexOf(goal);
   return recipe.ingredientIds.map(id => {
     const ingredient = dietIngredients[id];
-    return {name: ingredient.name, grams: ingredient.grams[Math.max(portionIndex, 0)]};
+    const weight = ingredient.grams[Math.max(portionIndex, 0)] * scale;
+    const grams = Math.round(weight);
+    return {name: ingredient.name, grams, kcal: grams * dietEnergyDensity[id] / 100};
   });
+}
+
+function recipeEnergy(recipe, goal, scale) {
+  return Math.round(portionIngredients(recipe, goal, scale).reduce((total, item) => total + item.kcal, 0));
 }

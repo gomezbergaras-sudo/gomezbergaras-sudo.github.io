@@ -21,7 +21,7 @@ function resetDietCatalog() {
 }
 
 function currentDietPlan() {
-  return buildDietPlan(state.profile, state.goal, state.foodPreference, state.strengthDays);
+  return buildDietPlan(state.profile, state.goal, state.foodPreference, state.strengthDays, state.targets.kcal);
 }
 
 function selectOptions(entries, current) {
@@ -41,8 +41,14 @@ function renderGoalPage() {
           <label class="field">Objetivo<select name="goal">${selectOptions(Object.entries(goalOptions).map(([id, goal]) => [id, goal.name]), state.goal)}</select></label>
           <label class="field">Tipo de alimentación<select name="foodPreference">${selectOptions(Object.entries(preferences), state.foodPreference)}</select></label>
           <label class="field">Días de fuerza por semana<select name="strengthDays">${selectOptions(strengthOptions.map(value => [value, value]), state.strengthDays)}</select></label>
-          <label class="field">Hora habitual de fin de cena<input type="time" name="dinner" value="${escapeHtml(profile.dinner)}"></label>
         </div>
+        <label class="field">¿Prefieres cenar o hacer solo dos comidas?<select name="mealSchedule">${selectOptions(Object.entries(dietMealSchedules).map(([id, option]) => [id, option.label]), profile.mealSchedule)}</select></label>
+        <label class="field" id="profile-dinner-time"${profile.mealSchedule === 'twoEarly' ? ' hidden' : ''}>Hora habitual de fin de cena<input type="time" name="dinner" value="${escapeHtml(profile.dinner)}"></label>
+        <div class="fields profile-options">
+          <label class="field">Sexo de referencia para el cálculo<select name="energySex">${selectOptions(Object.entries(energySexOptions), profile.energySex)}</select></label>
+          <label class="field">Actividad física habitual<select name="activity">${selectOptions([['', 'Elige un nivel'], ...Object.entries(energyActivityOptions).map(([id, option]) => [id, option.label])], profile.activity)}</select></label>
+        </div>
+        <p class="helper">Estos datos son opcionales. Con ellos estimamos tu meta de calorías. También puedes guardar una meta propia.</p>
         <label class="field">Preferencia de ayuno<select name="fastingPreference">${selectOptions(Object.entries(fastingPreferences), profile.fastingPreference)}</select></label>
         <div class="profile-precautions">
           <label class="field">Precauciones para el ayuno<select name="health" aria-describedby="profile-precautions">${selectOptions(Object.entries(healthOptions), profile.health)}</select></label>
@@ -57,7 +63,7 @@ function renderGoalPage() {
         <p class="helper profile-privacy">Tus datos se guardan en este navegador. El informe incluye las medidas registradas, tus objetivos y el plan actual.</p>
       </article>
       <article class="card sub-card"><h2>Metas numéricas opcionales</h2><form id="targets-form">
-        <p class="helper">Ingresa las metas que ya tengas definidas. Puedes dejar los campos en blanco.</p>
+        <p class="helper">Puedes usar una meta de calorías propia o dejar el campo vacío para usar la estimada por Stricto.</p>
         <div class="fields">${[['kcal', 'kcal'], ...macroGroups.map(([key, name]) => [key, `${name} (g)`])].map(([key, label]) => `<label class="field">${label}<input name="${key}" type="number" min="1" max="${key === 'kcal' ? '15000' : '2500'}" step="1" value="${escapeHtml(state.targets[key])}"></label>`).join('')}</div>
         <div><button class="button button-outline">Guardar metas</button></div></form>
       </article>
@@ -74,7 +80,10 @@ function measurementHistoryMarkup() {
 
 function saveDietProfile(elements) {
   const values = Object.fromEntries(profileInputs.map(([key]) => [key, elements[key].value === '' ? '' : elements[key].valueAsNumber]));
-  const profile = { ...values, dinner: elements.dinner.value, fastingPreference: elements.fastingPreference.value, health: elements.health.value };
+  const profile = {
+    ...values, dinner: elements.dinner.value, fastingPreference: elements.fastingPreference.value, health: elements.health.value,
+    mealSchedule: elements.mealSchedule.value, energySex: elements.energySex.value, activity: elements.activity.value,
+  };
   const measureKeys = Object.keys(measurementFields);
   const last = state.measurements.at(-1);
   if (measureKeys.some(key => profile[key] && profile[key] !== last?.[key])) {
@@ -97,12 +106,24 @@ function saveDietProfile(elements) {
   tell('Perfil guardado. Tu plan de Dietas se actualizó.');
 }
 
-function dietRecipeCard(meal, label) {
+function dietRecipeCard(meal, label, {inPlan = false, goal = 'general'} = {}) {
+  const action = `data-action="recipe" data-id="${meal.id}"${inPlan ? ' data-plan-recipe' : ''}`;
   return `<article class="card diet-recipe">
-    <button class="diet-photo-button" type="button" data-action="recipe" data-id="${meal.id}" aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo')}</button>
+    <button class="diet-photo-button" type="button" ${action} aria-label="Ver receta de ${meal.name}">${mealPhoto(meal, 'diet-food-photo')}</button>
     <div class="diet-recipe-copy"><span class="diet-period">${label}</span><h3>${meal.name}</h3>
-    <button class="text-button diet-recipe-link" type="button" data-action="recipe" data-id="${meal.id}">Ver receta ${icon('arrow')}</button></div>
+    <small class="diet-kcal">≈ ${number(meal.kcal ?? recipeEnergy(meal, goal))} kcal</small>
+    <button class="text-button diet-recipe-link" type="button" ${action}>Ver receta ${icon('arrow')}</button></div>
   </article>`;
+}
+
+function dietMenuMarkup(plan) {
+  if (plan.servings.length !== 2) {
+    return `<div class="diet-recipes">${plan.meals.map(meal => dietRecipeCard(meal, meal.period, {inPlan: true})).join('')}</div>`;
+  }
+  return `<div class="diet-two-meals">${plan.servings.map(serving => `<section class="diet-serving" aria-label="${serving.period}">
+    <div class="diet-section-heading"><h3>${serving.period}</h3><span>≈ ${number(serving.kcal)} kcal</span></div>
+    <div class="diet-recipes">${serving.dishes.map((meal, index) => dietRecipeCard(meal, index ? 'Acompañamiento' : 'Plato principal', {inPlan: true})).join('')}</div>
+  </section>`).join('')}</div>`;
 }
 
 function activeDietCatalogPreference() {
@@ -136,11 +157,12 @@ function renderDietCatalogResults() {
   const first = page * dietCatalogPageSize;
   const pageMeals = matches.slice(first, first + dietCatalogPageSize);
   const grid = document.querySelector('#diet-catalog-grid');
+  const goal = currentDietPlan().tailored ? state.goal : 'general';
   dietCatalogFilters.page = page;
   document.querySelector('#diet-catalog-results').textContent = matches.length
     ? `${number(first + 1)}–${number(first + pageMeals.length)} de ${number(matches.length)} ${matches.length === 1 ? 'combinación' : 'combinaciones'}`
     : 'No hay coincidencias. Prueba otro ingrediente o cambia los filtros.';
-  grid.innerHTML = pageMeals.map(meal => dietRecipeCard(meal, dietFamilyLabels[meal.family])).join('');
+  grid.innerHTML = pageMeals.map(meal => dietRecipeCard(meal, dietFamilyLabels[meal.family], {goal})).join('');
   const pagination = document.querySelector('#diet-catalog-pages');
   pagination.hidden = pageCount < 2;
   document.querySelector('#diet-catalog-page').textContent = `Página ${number(page + 1)} de ${number(pageCount)}`;
@@ -185,7 +207,11 @@ function renderDietPage() {
     <section class="diet-menu" aria-labelledby="plan-meals-title">
       <div class="diet-section-heading"><div><h2 id="plan-meals-title">Menú de un día</h2><span>${preferences[state.foodPreference]}</span></div>
         <button class="button button-outline" type="button" data-action="download-plan-pdf">${icon('download')} Descargar plan en PDF</button></div>
-      <div class="diet-recipes">${plan.meals.map(meal => dietRecipeCard(meal, meal.period)).join('')}</div>
+      <div class="diet-energy-summary"><strong>≈ ${number(plan.calories.menu)} kcal en el menú</strong>
+        ${plan.calories.target ? `<span>Meta diaria ${number(plan.calories.target)} kcal</span>` : ''}
+        <a href="#objetivo" class="text-button">Cambiar horario de comidas</a></div>
+      ${plan.scheduleNote ? `<p class="helper diet-menu-note">${plan.scheduleNote}</p>` : ''}
+      ${dietMenuMarkup(plan)}
     </section>
     <article class="card diet-window" id="diet-window" aria-labelledby="diet-window-heading" tabindex="-1">
       <div class="heading-title">${icon('clock', 'card-icon')}<h2 id="diet-window-heading">Ayuno recomendado</h2></div>
@@ -205,23 +231,26 @@ function showDietSection(id) {
   section.scrollIntoView({block: 'start'});
 }
 
-function recipePortionsMarkup(recipe, goal) {
-  return portionIngredients(recipe, goal).map(ingredient =>
+function recipePortionsMarkup(recipe, goal, scale = 1) {
+  return portionIngredients(recipe, goal, scale).map(ingredient =>
     `<li><span>${ingredient.name}</span><strong>${number(ingredient.grams)} g</strong></li>`).join('');
 }
 
-function showDietRecipe(id) {
-  const recipe = recipeFor(id, state.foodPreference);
+function showDietRecipe(id, inPlan) {
+  const plan = currentDietPlan();
+  const recipe = inPlan ? plan.meals.find(meal => meal.id === id) : recipeFor(id, state.foodPreference);
   if (!recipe) return;
-  const goal = currentDietPlan().tailored ? state.goal : 'general';
+  const goal = inPlan ? recipe.portionGoal : plan.tailored ? state.goal : 'general';
+  const scale = recipe.scale ?? 1;
   const portionOptions = Object.entries(dietPortionGoals);
   openDialog('recipe', recipe.name, '', `<figure class="diet-recipe-figure">${mealPhoto(recipe, 'diet-detail-photo')}
     <figcaption>${recipe.platedPhoto ? 'Foto de referencia del plato' : 'Fotos de los ingredientes de esta combinación'}</figcaption></figure>
     <div class="diet-detail">
       <h3>Ingredientes para una porción</h3>
-      ${fastingSafety(state.profile) ? '' : `<label class="field">Objetivo para los gramajes
+      ${inPlan || fastingSafety(state.profile) ? '' : `<label class="field">Objetivo para los gramajes
         <select id="diet-recipe-goal" data-id="${id}">${selectOptions(portionOptions, goal)}</select></label>`}
-      <ul class="diet-portion-list" id="diet-recipe-ingredients">${recipePortionsMarkup(recipe, goal)}</ul>
+      <p class="diet-kcal" id="diet-recipe-energy" role="status">≈ ${number(recipeEnergy(recipe, goal, scale))} kcal por porción</p>
+      <ul class="diet-portion-list" id="diet-recipe-ingredients">${recipePortionsMarkup(recipe, goal, scale)}</ul>
       <p class="helper">Gramajes orientativos para adultos. Pesa cada ingrediente tal como se indica en la lista.</p>
       <h3>Preparación</h3><p class="guide diet-method">${recipe.method}</p>
     </div>`);
@@ -230,6 +259,7 @@ function showDietRecipe(id) {
 function updateDietRecipePortions(select) {
   const recipe = recipeFor(select.dataset.id, state.foodPreference);
   document.querySelector('#diet-recipe-ingredients').innerHTML = recipePortionsMarkup(recipe, select.value);
+  document.querySelector('#diet-recipe-energy').textContent = `≈ ${number(recipeEnergy(recipe, select.value))} kcal por porción`;
 }
 
 function applyDietFasting() {
@@ -251,7 +281,6 @@ function applyDietFasting() {
 function downloadDietProfile() {
   const plan = currentDietPlan();
   const profile = state.profile;
-  const portionGoal = plan.tailored ? state.goal : 'general';
   const summary = [
     'STRICTO • MI PERFIL Y PLAN', `Fecha ${localDate()}`, '',
     `Nombre o apodo: ${state.name || 'Sin registrar'}`,
@@ -260,10 +289,12 @@ function downloadDietProfile() {
     `Días de fuerza por semana: ${state.strengthDays}`, '',
     'REGISTRO DE MEDIDAS',
     ...(state.measurements.length ? state.measurements.map(record => `${record.date} · ${Object.entries(measurementFields).filter(([key]) => record[key]).map(([key, [name, unit]]) => `${name} ${number(record[key], 1)} ${unit}`).join(' · ')}`) : ['Sin registros.']), '',
-    'MENÚ DE UN DÍA', plan.mealAdvice, ...(plan.training ? [plan.training] : []),
+    'MENÚ DE UN DÍA', `Menú estimado: ${plan.calories.menu} kcal`,
+    ...(plan.calories.target ? [`Meta diaria: ${plan.calories.target} kcal`] : []),
+    plan.mealAdvice, ...(plan.training ? [plan.training] : []),
     ...plan.meals.map(meal => {
-      const portions = portionIngredients(meal, portionGoal).map(({name, grams}) => `${grams} g de ${name}`);
-      return `${meal.period} · ${meal.name}\n  ${portions.join(', ')}. ${meal.method}`;
+      const portions = portionIngredients(meal, meal.portionGoal, meal.scale).map(({name, grams}) => `${grams} g de ${name}`);
+      return `${meal.period} · ${meal.name} · aprox. ${meal.kcal} kcal\n  ${portions.join(', ')}. ${meal.method}`;
     }), '',
     'AYUNO RECOMENDADO', plan.fasting.status, plan.fasting.reason,
     ...(plan.fasting.hours ? [`Horario de comidas: ${showTime(addHours(plan.fasting.start, plan.fasting.hours))} – ${showTime(plan.fasting.start)}`] : []),

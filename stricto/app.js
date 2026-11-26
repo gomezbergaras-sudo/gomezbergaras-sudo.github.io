@@ -299,15 +299,32 @@ function progress(value, target, color) {
   return `<span class="bar" aria-hidden="true" style="--value:${percentage}%;${color ? `--bar-color:var(--${color})` : ''}"><i></i></span>`;
 }
 
-function nutritionMarkup(meals, label = 'Hoy') {
+function nutritionMarkup(meals, label = 'Hoy', showCalories = true) {
   const total = totals(meals);
-  const targets = state.demo ? {kcal: 2000, protein: 135, carbs: 210, fat: 70} : state.targets;
-  return `<header class="card-heading"><div class="heading-title">${icon('chart', 'card-icon')}<h2>Nutrición</h2></div><span class="muted">${label}</span></header>
-    <div class="calorie-total"><strong>${number(total.kcal)}</strong><span>${targets.kcal ? `/ ${number(targets.kcal)} ` : ''}kcal ${targets.kcal ? '' : 'registradas'}</span></div>
-    ${progress(total.kcal, targets.kcal)}
+  const targets = state.demo ? {kcal: 2000, protein: 135, carbs: 210, fat: 70}
+    : {...state.targets, kcal: showCalories ? currentDietPlan().calories.target : 0};
+  return `<header class="card-heading"><div class="heading-title">${icon('chart', 'card-icon')}<h2>${showCalories ? 'Nutrición' : 'Macronutrientes'}</h2></div><span class="muted">${label}</span></header>
+    ${showCalories ? `<div class="calorie-total"><strong>${number(total.kcal)}</strong><span>${targets.kcal ? `/ ${number(targets.kcal)} ` : ''}kcal ${targets.kcal ? '' : 'registradas'}</span></div>
+    ${progress(total.kcal, targets.kcal)}` : ''}
     <div class="macros">${macroGroups.map(([key, name, color]) => `<div class="macro" style="--bar-color:var(--${color})">
       <span><i></i>${name}</span><strong>${number(total[key])} g ${targets[key] ? `<small>/ ${targets[key]} g</small>` : ''}</strong>${progress(total[key], targets[key], color)}
     </div>`).join('')}</div>`;
+}
+
+function renderHomeCalories(meals, calories) {
+  const recorded = Math.round(totals(meals).kcal);
+  const target = state.demo ? 2000 : calories.target;
+  const sourceLabel = state.demo ? 'Meta de ejemplo' : calories.source === 'manual' ? 'Meta propia' : 'Meta estimada';
+  const difference = target - recorded;
+  const status = difference > 0 ? `${number(difference)} kcal hasta la meta`
+    : difference < 0 ? `${number(-difference)} kcal por encima de la meta` : 'Meta alcanzada';
+  document.querySelector('#home-energy').innerHTML = `
+    <header class="card-heading"><div class="heading-title">${icon('chart', 'card-icon')}<h2>Calorías de hoy</h2></div>
+      <a class="text-button" href="#objetivo">${target && !state.demo ? 'Ver mi meta' : 'Configurar mi meta'}</a></header>
+    <div class="home-energy-values"><div class="calorie-total"><strong>${number(recorded)}</strong><span>kcal registradas</span></div>
+      ${target ? `<span class="home-energy-target">${sourceLabel} <strong>${number(target)} kcal</strong></span>` : ''}</div>
+    ${target ? `<progress class="home-energy-bar" value="${Math.min(recorded, target)}" max="${target}" aria-label="Calorías registradas frente a la meta" aria-valuetext="${number(recorded)} de ${number(target)} kcal"></progress>
+      <p class="helper">${status}</p>` : '<div class="home-energy-track" aria-hidden="true"></div><p class="helper">Completa tu perfil para estimar la meta diaria o guarda una meta propia.</p>'}`;
 }
 
 function mealsMarkup(meals, detailed = false) {
@@ -322,10 +339,12 @@ function mealsMarkup(meals, detailed = false) {
 function renderHome() {
   const meals = mealsFor(localDate());
   const plan = currentDietPlan();
-  document.querySelector('#home-nutrition').innerHTML = nutritionMarkup(meals);
+  const lunch = plan.servings.find(serving => serving.period === 'Almuerzo').dishes[0];
+  renderHomeCalories(meals, plan.calories);
+  document.querySelector('#home-nutrition').innerHTML = nutritionMarkup(meals, 'Hoy', false);
   document.querySelector('#home-meals').innerHTML = `<header class="card-heading"><div class="heading-title">${icon('bowl', 'card-icon')}<h2>Comidas de hoy</h2></div><a href="#diario" class="text-button">Ver diario</a></header>${mealsMarkup(meals.slice(0, 3))}`;
   document.querySelector('#home-suggestion').innerHTML = `<header class="card-heading"><div class="heading-title">${icon('leaf', 'card-icon')}<h2>Idea de comida para tu objetivo</h2></div></header>
-    <p><strong>${plan.meals[1].name}.</strong> ${plan.tailored ? goalOptions[state.goal].summary : 'Explora los platos y guarda tu perfil para adaptar el plan.'}</p><a class="button button-outline" href="#dietas">Ver mi plan de comidas ${icon('arrow')}</a>`;
+    <p><strong>${lunch.name}.</strong> ${plan.tailored ? goalOptions[state.goal].summary : 'Explora los platos y guarda tu perfil para adaptar el plan.'}</p><a class="button button-outline" href="#dietas">Ver mi plan de comidas ${icon('arrow')}</a>`;
 }
 
 function planLabel(duration) {
@@ -473,6 +492,7 @@ function openSources() {
       <li>Proteína y ejercicio durante un déficit energético. <a href="https://pubmed.ncbi.nlm.nih.gov/26817506/" target="_blank" rel="noreferrer">Ensayo de Longland y colaboradores</a></li>
       <li>Consideraciones sobre ayuno y diabetes. <a href="https://www.niddk.nih.gov/health-information/professionals/diabetes-discoveries-practice/patients-intermittent-fasting" target="_blank" rel="noreferrer">NIDDK</a></li>
       <li>Datos genéricos del catálogo. La arepa simple usa una referencia aproximada y varía según receta. <a href="https://fdc.nal.usda.gov/data-documentation/" target="_blank" rel="noreferrer">USDA FoodData Central</a></li>
+      <li>La meta de calorías estima primero el gasto en reposo y lo ajusta según la actividad y el objetivo. <a href="https://pubmed.ncbi.nlm.nih.gov/2305711/" target="_blank" rel="noreferrer">Mifflin y St Jeor</a> · <a href="https://www.niddk.nih.gov/health-information/weight-management/body-weight-planner" target="_blank" rel="noreferrer">NIDDK</a></li>
       <li>Estimación nutricional a partir de imágenes. <a href="https://openaccess.thecvf.com/content/CVPR2021/html/Thames_Nutrition5k_Towards_Automatic_Nutritional_Understanding_of_Generic_Food_CVPR_2021_paper.html" target="_blank" rel="noreferrer">Nutrition5k</a></li>
     </ul>`);
 }
@@ -669,7 +689,7 @@ const actionHandlers = {
   'new-profile': openCreateProfile,
   'switch-profile': button => activateProfile(button.dataset.id),
   personal: openPersonal,
-  recipe: button => showDietRecipe(button.dataset.id),
+  recipe: button => showDietRecipe(button.dataset.id, button.hasAttribute('data-plan-recipe')),
   'diet-catalog-page': button => stepDietCatalog(Number(button.dataset.step)),
   'show-diet-section': button => showDietSection(button.getAttribute('aria-controls')),
   'download-profile': downloadDietProfile,
@@ -758,6 +778,9 @@ document.addEventListener('input', event => {
 
 document.addEventListener('change', event => {
   const input = event.target;
+  if (input.form?.id === 'profile-form' && input.name === 'mealSchedule') {
+    document.querySelector('#profile-dinner-time').hidden = input.value === 'twoEarly';
+  }
   if (input.matches('#diet-catalog-filters select')) updateDietCatalogFilter(input);
   if (input.id === 'diet-recipe-goal') updateDietRecipePortions(input);
   if (input.id === 'journal-day' && input.value) {

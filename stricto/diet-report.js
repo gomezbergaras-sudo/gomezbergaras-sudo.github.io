@@ -27,7 +27,6 @@ function buildDietPlanPDF({name, date, goal, preference, plan, savedSchedule}) {
   const ink = '#211825';
   const plum = '#522645';
   const muted = '#635866';
-  const portionGoal = plan.tailored ? goal : 'general';
   let y = margin;
 
   function font(size, weight = 'normal', color = ink) {
@@ -72,6 +71,14 @@ function buildDietPlanPDF({name, date, goal, preference, plan, savedSchedule}) {
   writeLines(pdf.splitTextToSize(plan.tailored
     ? 'Gramajes orientativos por porción para el objetivo elegido.'
     : 'Gramajes orientativos por porción. Completa tu perfil para obtener opciones según tu objetivo.', width), margin);
+  font(10, 'bold', plum);
+  const totals = [`Menú estimado: ${number(plan.calories.menu)} kcal`];
+  if (plan.calories.target) totals.push(`Meta diaria: ${number(plan.calories.target)} kcal`);
+  writeLines(pdf.splitTextToSize(totals.join(' · '), width), margin);
+  if (plan.scheduleNote) {
+    font(9, 'normal', muted);
+    writeLines(pdf.splitTextToSize(plan.scheduleNote, width), margin);
+  }
   y += 5;
 
   const fastingRows = fastingReportRows(plan.fasting, savedSchedule);
@@ -86,17 +93,20 @@ function buildDietPlanPDF({name, date, goal, preference, plan, savedSchedule}) {
   writeLines(fastingLines, margin + 6, 4.6);
   y += 9;
 
+  let previousPeriod = '';
   for (const meal of plan.meals) {
     font(12, 'bold');
     const titles = pdf.splitTextToSize(meal.name, width);
     font(9, 'normal', muted);
     const method = pdf.splitTextToSize(meal.method, width);
-    const ingredients = portionIngredients(meal, portionGoal);
+    const ingredients = portionIngredients(meal, meal.portionGoal, meal.scale);
     ensureRoom(12 + titles.length * 5.2 + ingredients.length * 5.2 + method.length * 4.1);
     pdf.setDrawColor('#e3d5df');
     pdf.line(margin, y - 4, margin + width, y - 4);
     font(9, 'bold', plum);
-    pdf.text(meal.period.toLocaleUpperCase('es'), margin, y);
+    pdf.text(previousPeriod === meal.period ? `${meal.period.toLocaleUpperCase('es')} · segundo plato` : meal.period.toLocaleUpperCase('es'), margin, y);
+    pdf.text(`Aprox. ${number(meal.kcal)} kcal`, margin + width, y, {align: 'right'});
+    previousPeriod = meal.period;
     y += 5.4;
     font(12, 'bold');
     writeLines(titles, margin, 5.2);

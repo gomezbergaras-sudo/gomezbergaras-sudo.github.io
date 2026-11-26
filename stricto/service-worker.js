@@ -1,6 +1,6 @@
 const scope = self.registration.scope;
 const cachePrefix = `${scope}stricto-app-`;
-const cacheName = `${cachePrefix}6`;
+const cacheName = `${cachePrefix}7`;
 const appFiles = new Set([
   'index.html', 'styles.css', 'catalog.js', 'vision.js', 'app.js', 'stricto.webmanifest',
   'assets/bowl-stricto.jpg', 'assets/stricto-marca.png', 'assets/stricto-logo.png', 'assets/stricto-logo-inverso.png',

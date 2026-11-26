@@ -133,6 +133,17 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .scan-button { margin-top: 3px; background: #fff7f1; color: #42273a; }
 
 .nutrition-card { grid-area: nutri; }
+.home-energy-card { display: grid; gap: 8px; margin-bottom: 19px; }
+.home-energy-card .card-heading { margin: 0; }
+.home-energy-values { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.home-energy-values .calorie-total { margin: 0; }
+.home-energy-target { color: var(--muted); font-size: 13px; }
+.home-energy-target strong { color: var(--ink); }
+.home-energy-bar, .home-energy-track { width: 100%; height: 10px; border: 0; border-radius: 99px; background: var(--soft); accent-color: var(--accent); }
+.home-energy-bar { appearance: none; overflow: hidden; }
+.home-energy-bar::-webkit-progress-bar { background: var(--soft); border-radius: 99px; }
+.home-energy-bar::-webkit-progress-value { background: var(--accent); border-radius: 99px; }
+.home-energy-bar::-moz-progress-bar { background: var(--accent); border-radius: 99px; }
 .meals-card { grid-area: meals; }
 .suggestion-card { grid-area: suggest; }
 .card-heading > .muted { font-size: 12px; font-weight: 620; }
@@ -238,7 +249,15 @@ svg { display: block; width: 1.2em; height: 1.2em; flex: none; }
 .diet-detail-photo.diet-plated-photo { aspect-ratio: 1; }
 .diet-food-photo { transition: transform .22s ease; }
 .diet-photo-button:hover .diet-food-photo { transform: scale(1.035); }
-.diet-recipe-copy { display: grid; align-content: start; grid-template-rows: auto 1fr auto; padding: 12px; gap: 5px; }
+.diet-recipe-copy { display: grid; align-content: start; grid-template-rows: auto 1fr auto auto; padding: 12px; gap: 5px; }
+.diet-kcal { color: var(--muted); font-size: 12px; font-weight: 700; }
+.diet-energy-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 10px; }
+.diet-energy-summary span { color: var(--muted); font-size: 13px; }
+.diet-menu-note { margin-bottom: 10px; }
+.diet-two-meals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.diet-serving { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; background: var(--surface); }
+.diet-serving h3 { min-width: 0; }
+.diet-serving .diet-recipes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .diet-period { font-size: 11px; color: var(--accent); font-weight: 740; }
 .diet-recipe h3 { font-size: 16px; line-height: 1.2; letter-spacing: -.025em; }
 .diet-recipe-link { display: inline-flex; gap: 6px; align-items: center; width: fit-content; }
@@ -442,6 +461,9 @@ dialog.design-dialog { width: 805px; }
   .diet-jump { display: inline-flex; border-color: #ffffff40; color: var(--hero-ink); background: #ffffff13; }
   .profile-options label:first-child, .profile-options label:last-child { grid-column: 1 / -1; }
   .diet-recipes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .diet-two-meals { grid-template-columns: minmax(0, 1fr); }
+  .diet-serving { padding: 8px; }
+  .home-energy-card { margin-bottom: 12px; }
   .diet-filters.card { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .diet-search { grid-column: 1 / -1; }
   .diet-filters .field input, .diet-filters .field select, .diet-detail .field select { font-size: 16px; }
